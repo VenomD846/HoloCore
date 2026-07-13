@@ -1,0 +1,6 @@
+{
+  "messages": [
+    {"role": "user", "content": "I want HoloCore to preserve raw chats but store concise durable summaries."},
+    {"role": "assistant", "content": "We decided to use a configurable OpenAI-compatible provider with a local fallback."}
+  ]
+}

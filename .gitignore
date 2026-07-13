@@ -1,0 +1,50 @@
+# Python environments, caches, and build output
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
+
+# HoloCore runtime state and user knowledge
+.holocore/
+Archive/
+
+# Generated graph artifacts
+graphify-out/
+
+# Local AI-client configuration containing machine-specific paths
+.claude/
+.codex/
+.cursor/
+.gemini/
+.opencode/
+.mcp.json
+opencode.json
+
+# Reference applications used during the clean-room rewrite
+graphify-8 (1)/
+mempalace-develop/
+obsidian-second-brain-main/
+holocore.sources.json
+
+# Temporary Specify bootstrap workspace
+my-project/
+
+# Local environment and secrets
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.tmp
