@@ -35,6 +35,12 @@ holocore.sources.json
 # Temporary Specify bootstrap workspace
 my-project/
 
+# Local Specify / Spec Kit planning artifacts
+.specify/
+specs/
+.agents/skills/speckit-*/
+speckit.*.md
+
 # Local environment and secrets
 .env
 .env.*
