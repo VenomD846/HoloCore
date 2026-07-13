@@ -2,10 +2,12 @@
 
 ## Mental model
 
-- Archive owns curated, durable Markdown knowledge.
-- Atlas owns structural signals and relationships extracted from project files.
-- Animus owns episodic history in scoped Worlds and Sectors.
-- HoloCore routes a query to Archive always, to Atlas for structure-oriented terms, and to Animus for history-oriented terms.
+- **Archive is the project library.** It owns trusted, durable Markdown knowledge.
+- **Atlas is the project map.** It owns structural signals and relationships extracted from project files.
+- **Animus is the project diary.** It owns episodic history in scoped Worlds and Sectors.
+- **HoloCore is the coordinator.** It routes a query to Archive always, to Atlas for structure-oriented terms, and to Animus for history-oriented terms.
+
+See the [visual guide](visual-guide.md) for a numbered explanation of every workflow.
 
 ## Everyday commands
 

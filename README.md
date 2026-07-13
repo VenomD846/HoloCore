@@ -6,6 +6,16 @@ HoloCore is a self-contained local knowledge engine combining a curated Markdown
 
 Current version: `0.2.0`. The runtime is HoloCore-native and does **not** import, launch, or require the original Obsidian Second Brain, Graphify, or MemPalace applications. Those projects served as behavioral references during the rewrite and are not included as runtime components.
 
+## In simple terms
+
+HoloCore gives an AI assistant three things it normally loses between sessions:
+
+- **Archive is the library:** trusted notes, rules, and decisions.
+- **Atlas is the map:** files, functions, dependencies, and relationships.
+- **Animus is the memory:** previous work, conversations, errors, and useful context.
+
+You ask one question. HoloCore decides which of these sources matter, searches each selected source once, and returns a combined answer with source labels. Read the [step-by-step visual guide](docs/visual-guide.md) for illustrated examples.
+
 ## Quick start
 
 ```powershell
