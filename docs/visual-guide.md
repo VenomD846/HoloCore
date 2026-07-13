@@ -129,6 +129,10 @@ Open or reload the project in Codex, Claude, Cursor, Gemini, or OpenCode. The cl
 
 The user can search, remember, recall, map, and curate from any supported client. Every client reaches the same Archive, Atlas, Animus, and HoloCore Engine for that World.
 
+### Is Obsidian required?
+
+No. Atlas generates its own interactive HTML graph, which opens in a normal web browser. Obsidian is optional and provides a separate visual graph for the linked Markdown notes in Archive. AI clients use HoloCore's MCP tools and JSON data rather than either visual interface. See [prerequisites and graph viewing options](prerequisites.md).
+
 ## What happens during normal project work?
 
 1. **Orient:** run `holocore status` to check that required folders exist and Atlas, Archive, and Animus are ready.

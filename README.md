@@ -16,6 +16,10 @@ HoloCore gives an AI assistant three things it normally loses between sessions:
 
 You ask one question. HoloCore checks readiness first, uses Atlas to narrow the project scope, searches the corresponding Archive notes, consults Animus only when previous history matters, and then opens exact source files. Every selected stage runs at most once and the route cannot call itself. Read the [step-by-step visual guide](docs/visual-guide.md) for illustrated examples.
 
+### Do I need Obsidian?
+
+No. HoloCore's Atlas is a self-contained HTML graph that opens in a normal web browser. Obsidian is optional and is only needed if you want to use its visual graph interface for the linked Markdown notes in Archive. See [prerequisites and graph viewing options](docs/prerequisites.md).
+
 ### Canonical vocabulary
 
 - **Archive** = verified knowledge.
@@ -45,6 +49,7 @@ Implemented today: native Archive operations, Atlas JSON/HTML graph extraction a
 - [Visual guide](docs/visual-guide.md)
 - [User guide](docs/user-guide.md)
 - [Installation guide](docs/installation.md)
+- [Prerequisites and optional graph tools](docs/prerequisites.md)
 - [Workflow guide](docs/workflows.md)
 - [Slash-command reference](docs/slash-commands.md)
 - [Configuration guide](docs/configuration.md)
@@ -53,6 +58,7 @@ Implemented today: native Archive operations, Atlas JSON/HTML graph extraction a
 - [Troubleshooting](docs/troubleshooting.md)
 - [Portability and AI-client guide](docs/portability-ai-clients.md)
 - [Capability status](docs/capability-status.md)
+- [Acknowledgments and third-party provenance](THIRD_PARTY_NOTICES.md)
 
 ## Safety model
 

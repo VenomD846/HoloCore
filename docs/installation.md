@@ -10,6 +10,8 @@
 
 No external LLM key and no original Obsidian Second Brain, Graphify, or MemPalace installation is required.
 
+See [prerequisites and optional graph tools](prerequisites.md) for the required software, the difference between the Atlas and Archive graph views, and optional Obsidian setup.
+
 ## Install from this checkout
 
 ```powershell
