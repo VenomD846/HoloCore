@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "holocore"
-version = "0.3.0"
+version = "0.4.0"
 description = "HoloCore Context Engine: local-first Archive, Atlas, Animus, CLI, MCP, and focused AI context"
 requires-python = ">=3.11"
 license = "Apache-2.0"

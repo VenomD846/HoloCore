@@ -31,4 +31,4 @@ Archive stores user-owned Markdown. Atlas writes generated JSON atomically. Anim
 
 ## Feature 002 implementation
 
-Memory refinement uses an optional provider boundary around Animus while preserving raw-chat audits and the keyless local fallback. Atlas HTML exports native graph data into a self-contained view. Generated slash commands and Codex skills are client adapters over the stable CLI/MCP intent; they are not a second runtime.
+Memory refinement uses an optional provider boundary around Animus while preserving raw-chat audits and the keyless local fallback. Atlas HTML exports native graph data into a self-contained view. Generated client commands, Gemini TOML command definitions, and `$`-invoked Codex skills are adapters over the stable CLI/MCP intent; they are not a second runtime.

@@ -13,9 +13,10 @@ For a non-technical overview, start with the [visual guide](visual-guide.md).
 7. Make writes explicit and scoped.
 
 ```powershell
-holocore --root "C:\work\project" archive-search "architecture decision"
-holocore --root "C:\work\project" atlas-search "Router dependency"
-holocore --root "C:\work\project" recall "previous Router error" --sector project
+cd C:\path\to\project
+holocore archive-search "architecture decision"
+holocore atlas-search "Router dependency"
+holocore recall "previous Router error" --sector project
 ```
 
 ## Refresh structural knowledge

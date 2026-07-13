@@ -4,7 +4,7 @@
 
 ![HoloCore Context Engine checks Atlas, reads matching Archive knowledge, optionally recalls Animus history, and sends focused context to reduce input tokens](docs/assets/holocore-context-engine-token-savings.png)
 
-Current version: `0.3.0`. The runtime is HoloCore-native and does **not** import, launch, or require the original Obsidian Second Brain, Graphify, or MemPalace applications. Those projects served as behavioral references during the rewrite and are not included as runtime components.
+Current version: `0.4.0`. The runtime is HoloCore-native and does **not** import, launch, or require the original Obsidian Second Brain, Graphify, or MemPalace applications. Those projects served as behavioral references during the rewrite and are not included as runtime components.
 
 ## In simple terms
 
@@ -35,19 +35,30 @@ No. HoloCore's Atlas is a self-contained HTML graph that opens in a normal web b
 ## Quick start
 
 ```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e .
-$WorldRoot = Read-Host "Enter the project folder to use as a HoloCore World"
-holocore --root $WorldRoot init
-holocore --root $WorldRoot status
+uv tool install "git+https://github.com/VenomD846/HoloCore.git"
+cd C:\path\to\project
+holocore setup
 ```
 
-Implemented today: native Archive operations, Atlas JSON/HTML graph extraction and queries, Animus memory storage and recall, raw-chat auditing with distilled memory, configurable OpenAI-compatible LLM providers, unified search, CLI/MCP tools, generated slash commands/skills, and non-destructive client bootstrap.
+After a PyPI release, the shorter install command will be:
 
-## Claude discovery
+```powershell
+uv tool install holocore
+```
 
-Running `holocore init` generates project-local `CLAUDE.md`, `.mcp.json`, HoloCore commands, and shared policy files when those paths are missing. After reopening the World in Claude, Claude can discover the HoloCore instructions and start `holocore-mcp`. Existing Claude configuration is never overwritten; merge the `holocore` MCP entry manually when a project already has `.mcp.json`.
+`setup` turns the current project into a HoloCore World. It creates a visible top-level `Archive` Obsidian vault, private generated state in `.holocore`, `HOLOCORE-START-HERE.md`, client-native command definitions, and Codex project skills. It also registers the HoloCore MCP server for Claude Code, Codex, Gemini, Cursor, and OpenCode without overwriting existing configuration.
+
+Open `HOLOCORE-START-HERE.md` after setup, or run `holocore paths` to see every generated location. Use `holocore doctor` to check the installation, `holocore connect` to add or repair client connections, and `holocore open-archive` to open the Archive.
+
+Implemented today: native Archive operations, Atlas JSON/HTML graph extraction and queries, Animus memory storage and recall, raw-chat auditing with distilled memory, configurable OpenAI-compatible LLM providers, unified search, CLI/MCP tools, client-native commands, Codex project skills, and non-destructive client bootstrap.
+
+## Use it from an AI client
+
+For Claude Code, setup adds the project MCP connection to `.mcp.json` and creates slash commands such as `/holocore-search`. Restart Claude after setup, run `/mcp` to confirm the connection, then use `/holocore-search` or the generated MCP prompt `/mcp__holocore__search`.
+
+For Codex, setup adds the project MCP connection to `.codex/config.toml` and creates `$`-invoked project skills under `.agents/skills`. Codex does not use HoloCore slash commands; restart Codex or reopen the project, then invoke `$holocore-search`.
+
+Gemini receives TOML command definitions under `.gemini/commands`, while Cursor and OpenCode receive their native project command formats. All integrations are non-destructive. See the [AI-client guide](docs/portability-ai-clients.md) for details.
 
 Recommended GitHub discovery topics are `claude-code`, `model-context-protocol`, `mcp-server`, `ai-context`, `knowledge-graph`, `second-brain`, `ai-memory`, `obsidian`, and `local-first`.
 
@@ -70,7 +81,7 @@ Recommended GitHub discovery topics are `claude-code`, `model-context-protocol`,
 
 ## Safety model
 
-Reads and health checks are safe by default. Initialization never overwrites existing integration files. Archive creation, Atlas refresh/HTML generation, and Animus capture/refinement are explicit writes. The baseline remains local and keyless when no remote LLM is configured.
+Reads and health checks are safe by default. Setup adds or merges HoloCore integration entries without overwriting unrelated client configuration. Archive creation, Atlas refresh/HTML generation, and Animus capture/refinement are explicit writes. The baseline remains local and keyless when no remote LLM is configured.
 
 ## License and commercial use
 

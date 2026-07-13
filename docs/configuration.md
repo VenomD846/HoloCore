@@ -2,7 +2,7 @@
 
 ## Project state
 
-Initialization writes `.holocore/config.json` with `version`, `world`, `root`, `archive`, and `state_dir`. Runtime `Config.load` also recognizes `.holocore/world.json` with `archive` (or legacy `vault`) and `state_dir`. If it is absent, defaults are used.
+`holocore setup` writes `.holocore/config.json` with `version`, `world`, `root`, `archive`, and `state_dir`. Runtime `Config.load` also recognizes `.holocore/world.json` with `archive` (or legacy `vault`) and `state_dir`. If it is absent, defaults are used.
 
 Environment overrides:
 
@@ -21,6 +21,8 @@ Native runtime state includes Atlas JSON and the Animus SQLite database under th
 ## MCP configuration
 
 Clients launch `holocore-mcp` with the project root as `cwd`. Examples are in the [portability guide](portability-ai-clients.md).
+
+`holocore setup` performs the initial non-destructive registration. Use `holocore paths` to inspect selected locations and `holocore connect` to add or repair client registrations later.
 
 ## Optional memory-refinement LLM
 

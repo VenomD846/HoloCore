@@ -109,23 +109,23 @@ A chat memory does not automatically become a permanent Archive rule. Only verif
 
 ## How installation connects another AI client
 
-![Installing HoloCore initializes a World and generates integrations for supported AI clients](assets/workflow-install-ai.svg)
+![Installing HoloCore sets up a World and generates integrations for supported AI clients](assets/workflow-install-ai.svg)
 
 ### Step 1 — Install the package
 
-Install the HoloCore wheel once on the computer. This provides the `holocore` command and the `holocore-mcp` server. The original Obsidian Second Brain, Graphify, and MemPalace applications are not required.
+Run `uv tool install holocore` once on the computer. Until PyPI publication, use the repository Git URL instead. This provides the `holocore` command and local `holocore-mcp` server. The original Obsidian Second Brain, Graphify, and MemPalace applications are not required.
 
-### Step 2 — Initialize a project
+### Step 2 — Set up a project
 
-Run `holocore --root "C:\path\to\project" init`. The selected project becomes a HoloCore **World**. Initialization is non-destructive: existing AI-client files are skipped instead of overwritten.
+Change into any project and run `holocore setup`. The current project becomes a HoloCore **World**. Setup is non-destructive: it adds or merges HoloCore client entries without replacing unrelated configuration.
 
 ### Step 3 — HoloCore prepares the local World
 
-It creates the missing local state, Archive folders, Git repository, client instructions, commands or skills, and MCP configuration. The knowledge remains inside the project unless the user deliberately moves or shares it.
+It creates the visible top-level `Archive` vault, `.holocore` runtime, `HOLOCORE-START-HERE.md`, client instructions, client-native commands, Codex skills, and MCP configuration. Gemini commands are TOML files under `.gemini/commands`; Codex skills live under `.agents/skills`. The knowledge remains inside the project unless the user deliberately moves or shares it.
 
 ### Step 4 — Reload the AI client
 
-Open or reload the project in Codex, Claude, Cursor, Gemini, or OpenCode. The client discovers its generated HoloCore instructions and commands. MCP-capable clients can start `holocore-mcp` and call HoloCore tools directly.
+Restart or reopen the project in Codex, Claude, Cursor, Gemini, or OpenCode. Claude reads `.mcp.json` and exposes `/holocore-search` and `/mcp__holocore__search`; use `/mcp` to check the connection. Codex reads `.codex/config.toml` and discovers `$holocore-search` under `.agents/skills` rather than as a slash command.
 
 ### Step 5 — Use the same experience everywhere
 

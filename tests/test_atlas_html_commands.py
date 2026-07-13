@@ -1,4 +1,5 @@
 import json
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -51,7 +52,8 @@ def test_command_catalog_has_required_cross_platform_commands() -> None:
     names = {command.name for command in COMMANDS}
     assert names == {
         "init", "search", "remember", "recall", "atlas-refresh", "atlas-view",
-        "archive-search", "archive-create", "status", "doctor",
+        "archive-search", "archive-create", "status", "doctor", "setup", "connect",
+        "paths", "open-archive",
     }
     assert get_command("holocore-atlas-view").invocation.startswith("holocore atlas-view")
 
@@ -59,17 +61,23 @@ def test_command_catalog_has_required_cross_platform_commands() -> None:
 def test_renderers_emit_every_command_with_portable_paths_and_arguments() -> None:
     rendered = render_all_commands()
     assert set(rendered) == {"claude", "cursor", "gemini", "opencode", "codex"}
-    assert all(len(files) == len(COMMANDS) for files in rendered.values())
+    assert len(rendered["claude"]) == len(COMMANDS) * 2
+    assert all(len(files) == len(COMMANDS) for platform, files in rendered.items() if platform != "claude")
     for platform, files in rendered.items():
         assert all("\\" not in path for path in files)
-        assert all("$ARGUMENTS" in content for content in files.values())
         assert any("atlas-view" in path for path in files)
         if platform == "codex":
             assert all(path.endswith("/SKILL.md") for path in files)
+            assert all("$ARGUMENTS" not in content for content in files.values())
+        if platform == "gemini":
+            assert all(path.endswith(".toml") for path in files)
+            assert all("{{args}}" in content for content in files.values())
+            assert all(tomllib.loads(content)["prompt"] for content in files.values())
 
 
 def test_codex_skill_has_valid_identity_and_write_safety() -> None:
     skill = render_codex_skill("archive-create")
     assert "name: holocore-archive-create" in skill
     assert "confirm the requested scope" in skill
-    assert "holocore archive-create $ARGUMENTS" in skill
+    assert "holocore archive-create" in skill
+    assert "$ARGUMENTS" not in skill

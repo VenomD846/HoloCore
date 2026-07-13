@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from holocore.engine import HoloCoreEngine
-from holocore.mcp_server import TOOLS, call
+from holocore.mcp_server import PROMPTS, TOOLS, call, get_prompt
 
 
 def test_new_application_combines_wiki_graph_memory_git_and_ai_links(tmp_path: Path) -> None:
@@ -36,9 +36,11 @@ def test_new_application_combines_wiki_graph_memory_git_and_ai_links(tmp_path: P
     names = {tool["name"] for tool in TOOLS}
     assert {"holocore_search", "holocore_archive_search", "holocore_atlas_search", "holocore_remember", "holocore_recall"} <= names
     assert call(engine, "holocore_status", {})["world"] == str(world.resolve())
+    assert "search" in {prompt["name"] for prompt in PROMPTS}
+    assert "holocore search" in get_prompt("search", {"arguments": "architecture"})["messages"][0]["content"]["text"]
 
     mcp = json.loads((world / ".mcp.json").read_text(encoding="utf-8"))
-    assert mcp["mcpServers"]["holocore"]["command"] == "holocore-mcp"
+    assert mcp["mcpServers"]["holocore"]["args"] == ["-m", "holocore.mcp_server"]
 
     # Production package contains only src/holocore; old source trees are not runtime imports.
     source_text = "\n".join(path.read_text(encoding="utf-8") for path in (Path(__file__).parents[1] / "src" / "holocore").glob("*.py"))

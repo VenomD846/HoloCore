@@ -1,6 +1,10 @@
 # MCP reference
 
-`holocore-mcp` is a local stdio JSON-RPC server implementing `initialize`, `tools/list`, and `tools/call`. It reports protocol version `2025-06-18` and server version `0.3.0`.
+`holocore-mcp` is a local stdio MCP server. `holocore setup` registers it non-destructively for Claude Code, Codex, Gemini, Cursor, and OpenCode with the project directory as the active World.
+
+Claude stores the project connection in `.mcp.json`. After restarting Claude, run `/mcp` to verify it, then invoke the generated prompt `/mcp__holocore__search` or slash command `/holocore-search`.
+
+Codex stores the connection in `.codex/config.toml` and project skills in `.agents/skills`. Restart Codex or reopen the project, then invoke `$holocore-search`.
 
 | Tool | Required inputs | Effect |
 |---|---|---|
@@ -18,4 +22,4 @@
 
 Tool results are returned as JSON encoded in one MCP text-content item. Errors use JSON-RPC code `-32000` with the exception message.
 
-Current limitations: the server has no resources/prompts surface and no authentication layer because it is a local stdio process. The launching client's `cwd` determines the active World.
+Generated MCP prompts expose the same workflows using the client's MCP prompt syntax. The server has no authentication layer because it is a local stdio process. The launching client's `cwd` determines the active World.

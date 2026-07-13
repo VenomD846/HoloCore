@@ -165,6 +165,28 @@ class Archive:
                 encoding="utf-8",
             )
             created.append("system/index.md")
+        guide = self.vault / "README.md"
+        if not guide.exists():
+            today = date.today().isoformat()
+            guide.write_text(
+                _render(
+                    {
+                        "type": "guide",
+                        "date": today,
+                        "tags": ["guide", "archive"],
+                        "ai-first": True,
+                        "provenance": {"system": "holocore", "operation": "vault-init"},
+                    },
+                    "## For future Claude\nThis visible folder is the HoloCore Archive and can be opened directly as an Obsidian vault.\n\n"
+                    "# HoloCore Archive\n\n"
+                    "- `Inbox/` holds notes waiting to be refined.\n"
+                    "- `wiki/` holds polished, verified Archive Entries.\n"
+                    "- `system/index.md` is the starting map.\n\n"
+                    "Obsidian is optional. HoloCore and connected AI clients read these Markdown files directly.\n",
+                ),
+                encoding="utf-8",
+            )
+            created.append("README.md")
         return {"vault": str(self.vault), "created": created, "initialized": True}
 
     init = init_vault

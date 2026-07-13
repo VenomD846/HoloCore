@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .config import Config
 from .install import bootstrap
+from .layout import integration_status, world_paths
 from .llm import provider_from_config
 from .memory_pipeline import MemoryRefinementPipeline
 from .models import Result
@@ -17,6 +18,24 @@ class HoloCoreEngine:
         self.root = root.resolve(); self.router = Router(self.root, config); self._cache: dict[tuple[str, str | None], list[Result]] = {}
 
     def initialize(self, *, git: bool = True, platforms: list[str] | None = None) -> dict: return bootstrap(self.root, init_git=git, platforms=platforms)
+    def connect(self, *, platforms: list[str] | None = None) -> dict:
+        return bootstrap(self.root, init_git=False, platforms=platforms)
+    def setup(self, *, git: bool = False, platforms: list[str] | None = None) -> dict:
+        installation = self.initialize(git=git, platforms=platforms)
+        atlas = self.refresh()
+        from .atlas_html import generate_atlas_html
+        html = str(generate_atlas_html(self.router.atlas.output))
+        return {
+            "ready": True,
+            "world": str(self.root),
+            "installation": installation,
+            "atlas": atlas,
+            "atlas_html": html,
+            "paths": world_paths(self.root, self.router.config),
+            "next_steps": installation["next_steps"],
+        }
+    def paths(self) -> dict[str, str]:
+        return world_paths(self.root, self.router.config)
     def search(self, query: str, world: str | None = None) -> list[Result]:
         key = (query, world)
         if key not in self._cache: self._cache[key] = self.router.search(query, world)
@@ -24,7 +43,7 @@ class HoloCoreEngine:
     def status(self) -> dict:
         required = (self.router.config.state_dir, self.router.config.vault)
         readiness = {"ready": all(path.is_dir() for path in required), "missing": [str(path) for path in required if not path.is_dir()]}
-        return {"world": str(self.root), "readiness": readiness, "archive": self.router.archive.health(), "atlas": self.router.atlas.freshness(), "animus": self.router.animus.status(self.root.name)}
+        return {"world": str(self.root), "readiness": readiness, "paths": self.paths(), "integrations": integration_status(self.root), "archive": self.router.archive.health(), "atlas": self.router.atlas.freshness(), "animus": self.router.animus.status(self.root.name)}
     def refresh(self) -> dict:
         graph = self.router.atlas.refresh(); self._cache.clear()
         return {"path": str(self.router.atlas.output), "nodes": len(graph.get("nodes", [])), "edges": len(graph.get("links", graph.get("edges", []))), "fresh": True}

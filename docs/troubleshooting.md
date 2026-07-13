@@ -2,19 +2,19 @@
 
 ## `ModuleNotFoundError: holocore`
 
-Activate the environment where HoloCore is installed, then run `python -m pip install -e "C:\path\to\HoloCore"`. For checkout-only development, `$env:PYTHONPATH = "src"` is a temporary alternative.
+Reinstall the tool with `uv tool install holocore`. Until PyPI publication, use the repository Git URL. Editable installs and `PYTHONPATH` are development-only alternatives.
 
 ## `holocore` or `holocore-mcp` is not recognized
 
-Confirm the virtual environment is active and run `python -m pip show holocore`. Reinstall in that environment if needed.
+Run `uv tool list` and confirm HoloCore is installed. Reinstall it with `uv tool install holocore` or the repository Git URL, then open a new terminal so the tool path is refreshed.
 
 ## MCP client cannot start the server
 
-Run `Get-Command holocore-mcp`, verify the client's `cwd` exists, and restart the client after config changes. Prefer an absolute executable path if the client does not inherit the shell PATH.
+From the project, run `holocore doctor` and `holocore connect`. Then restart or reopen the client. Claude users should run `/mcp`; Codex users should inspect `.codex/config.toml` only if Doctor still reports a problem.
 
 ## `status` reports Atlas missing or stale
 
-Run `holocore --root "<project>" atlas-refresh`, then rerun status. Refresh is a write to HoloCore state.
+Change into the project, run `holocore atlas-refresh`, then rerun `holocore doctor`. Refresh is a write to HoloCore state.
 
 ## Animus reports an unknown World or Sector
 
@@ -30,7 +30,7 @@ Archive rejects traversal and protected directories and refuses unexpected overw
 
 ## Command does not appear in an AI client
 
-Run `holocore init` in the World, then restart or reload the AI client so it discovers the generated commands, Codex skills, and MCP configuration. Check [capability status](capability-status.md) and use the documented CLI equivalent if the client does not support project commands.
+Run `holocore setup` in the project, then restart or reload the AI client. Claude Code discovers `.mcp.json`, `/holocore-search`, and `/mcp__holocore__search`; Codex discovers `.codex/config.toml` and `.agents/skills`, including `$holocore-search`. Run `holocore connect` if the client was installed after setup.
 
 ## Original app is missing
 

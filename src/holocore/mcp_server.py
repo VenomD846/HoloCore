@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from .engine import HoloCoreEngine
+from .commands import COMMANDS
 
 
 def _tool(name, description, properties=None, required=None): return {"name": name, "description": description, "inputSchema": {"type": "object", "properties": properties or {}, "required": required or []}}
@@ -21,6 +22,26 @@ TOOLS = [
     _tool("holocore_recall", "Recall scoped episodic memory", {"query": {"type": "string"}, "sector": {"type": "string"}}, ["query"]),
     _tool("holocore_ingest_chat", "Store raw chat and distill summary/facts", {"messages": {"type": "array"}, "sector": {"type": "string"}, "instructions": {"type": "string"}}, ["messages"]),
 ]
+PROMPTS = [
+    {
+        "name": command.name,
+        "description": command.description,
+        "arguments": [{"name": "arguments", "description": "Optional command details", "required": False}],
+    }
+    for command in COMMANDS
+]
+
+
+def get_prompt(name: str, arguments: dict) -> dict:
+    command = next((item for item in COMMANDS if item.name == name), None)
+    if command is None:
+        raise ValueError(f"Unknown HoloCore prompt: {name}")
+    supplied = str(arguments.get("arguments", "")).strip()
+    invocation = command.invocation.replace("$ARGUMENTS", supplied).strip()
+    return {
+        "description": command.description,
+        "messages": [{"role": "user", "content": {"type": "text", "text": f"Run this from the current World and return the focused result: {invocation}"}}],
+    }
 
 
 def call(engine: HoloCoreEngine, name: str, args: dict):
@@ -46,9 +67,11 @@ def main() -> int:
         request = {}
         try:
             request = json.loads(line); method = request.get("method"); params = request.get("params", {})
-            if method == "initialize": result = {"protocolVersion": "2025-06-18", "capabilities": {"tools": {}}, "serverInfo": {"name": "holocore", "version": "0.3.0"}}
+            if method == "initialize": result = {"protocolVersion": "2025-06-18", "capabilities": {"tools": {}, "prompts": {}}, "serverInfo": {"name": "holocore", "version": "0.4.0"}}
             elif method == "tools/list": result = {"tools": TOOLS}
             elif method == "tools/call": result = {"content": [{"type": "text", "text": json.dumps(call(engine, params["name"], params.get("arguments", {})), ensure_ascii=False, default=str)}]}
+            elif method == "prompts/list": result = {"prompts": PROMPTS}
+            elif method == "prompts/get": result = get_prompt(params["name"], params.get("arguments", {}))
             else: result = {}
             response = {"jsonrpc": "2.0", "id": request.get("id"), "result": result}
         except Exception as exc: response = {"jsonrpc": "2.0", "id": request.get("id"), "error": {"code": -32000, "message": str(exc)}}
