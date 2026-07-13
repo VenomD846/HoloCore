@@ -1,5 +1,7 @@
 # Installation guide
 
+![HoloCore installation connects one local World to supported AI clients](assets/workflow-install-ai.svg)
+
 ## Requirements
 
 - Windows with PowerShell (first-class baseline)

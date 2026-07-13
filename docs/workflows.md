@@ -1,5 +1,7 @@
 # Workflow guide
 
+For a non-technical overview, start with the [visual guide](visual-guide.md).
+
 ## Orient before broad work
 
 1. Run `status`.
@@ -29,6 +31,8 @@ The CLI currently exposes `archive-init` and `archive-search`. Archive create/re
 ## Refined-memory workflow
 
 Use `ingest-chat` with a JSON message list or an object containing `messages`. HoloCore writes a raw-chat audit, then uses deterministic local extraction or an explicitly configured OpenAI-compatible provider and stores distilled summary/fact/decision/preference/entity shards. There is no separate `refine` command. Provider/model identity on each shard and graceful remote-provider fallback remain planned hardening.
+
+![Chat memory refinement preserves the raw chat and stores distilled memory in one extraction pass](assets/workflow-memory-refinement.svg)
 
 ## Graph-view workflow
 

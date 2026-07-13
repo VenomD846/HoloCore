@@ -1,8 +1,10 @@
 # Architecture and technical guide
 
+![HoloCore architecture overview](assets/holocore-overview.svg)
+
 ## Runtime boundary
 
-HoloCore is one Python package under `src/holocore`. `holocore.sources.json` marks Obsidian Second Brain, Graphify, and MemPalace source trees as `runtime: false`. They are parity references, not imports, subprocesses, services, or installation prerequisites.
+HoloCore is one Python package under `src/holocore`. Obsidian Second Brain, Graphify, and MemPalace served as behavioral references during the rewrite; they are not imports, subprocesses, services, bundled source trees, or installation prerequisites.
 
 ## Components
 
@@ -20,6 +22,8 @@ HoloCore is one Python package under `src/holocore`. `holocore.sources.json` mar
 `CLI or MCP -> HoloCoreEngine -> Router -> Archive / Atlas / Animus -> source-labelled result`
 
 Archive is always searched by unified search. Atlas is selected for structural terms; Animus is selected for history terms. Each selected subsystem runs at most once. This is deterministic keyword routing today, not semantic LLM routing.
+
+![Unified search routes each query once and avoids duplicate subsystem calls](assets/workflow-unified-search.svg)
 
 ## Storage and safety
 

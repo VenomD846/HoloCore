@@ -2,7 +2,9 @@
 
 HoloCore is a self-contained local knowledge engine combining a curated Markdown Archive, a native structural Atlas, and SQLite-backed episodic Animus behind one CLI and MCP server.
 
-Current version: `0.2.0`. The current runtime is HoloCore-native and does **not** import, launch, or require the original Obsidian Second Brain, Graphify, or MemPalace applications. Their source directories are reference material only.
+![HoloCore overview showing AI clients connected through one engine to Archive, Atlas, and Animus](docs/assets/holocore-overview.svg)
+
+Current version: `0.2.0`. The runtime is HoloCore-native and does **not** import, launch, or require the original Obsidian Second Brain, Graphify, or MemPalace applications. Those projects served as behavioral references during the rewrite and are not included as runtime components.
 
 ## Quick start
 
@@ -18,6 +20,7 @@ Implemented today: native Archive operations, Atlas JSON/HTML graph extraction a
 
 ## Documentation
 
+- [Visual guide](docs/visual-guide.md)
 - [User guide](docs/user-guide.md)
 - [Installation guide](docs/installation.md)
 - [Workflow guide](docs/workflows.md)
