@@ -22,7 +22,9 @@ class HoloCoreEngine:
         if key not in self._cache: self._cache[key] = self.router.search(query, world)
         return self._cache[key]
     def status(self) -> dict:
-        return {"world": str(self.root), "archive": self.router.archive.health(), "atlas": self.router.atlas.freshness(), "animus": self.router.animus.status(self.root.name)}
+        required = (self.router.config.state_dir, self.router.config.vault)
+        readiness = {"ready": all(path.is_dir() for path in required), "missing": [str(path) for path in required if not path.is_dir()]}
+        return {"world": str(self.root), "readiness": readiness, "archive": self.router.archive.health(), "atlas": self.router.atlas.freshness(), "animus": self.router.animus.status(self.root.name)}
     def refresh(self) -> dict:
         graph = self.router.atlas.refresh(); self._cache.clear()
         return {"path": str(self.router.atlas.output), "nodes": len(graph.get("nodes", [])), "edges": len(graph.get("links", graph.get("edges", []))), "fresh": True}

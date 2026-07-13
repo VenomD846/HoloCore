@@ -5,10 +5,12 @@ For a non-technical overview, start with the [visual guide](visual-guide.md).
 ## Orient before broad work
 
 1. Run `status`.
-2. Search Archive for durable decisions.
-3. Use Atlas only for code/file structure.
-4. Use Animus only for previous work or errors.
-5. Make writes explicit and scoped.
+2. Check Atlas freshness; refresh only as an explicit write when needed.
+3. Use Atlas to identify the relevant files, symbols, and relationships.
+4. Search the corresponding Archive notes for durable decisions and rules.
+5. Use Animus only for previous work, errors, attempts, or chats.
+6. Open only the exact source files identified by those checks.
+7. Make writes explicit and scoped.
 
 ```powershell
 holocore --root "C:\work\project" archive-search "architecture decision"

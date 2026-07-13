@@ -32,37 +32,39 @@ HoloCore does not copy everything into all three places. Each kind of informatio
 
 ## How unified search works
 
-![A query is routed once, relevant knowledge systems run at most once, and results are merged](assets/workflow-unified-search.svg)
+![HoloCore checks readiness before following a one-way Atlas, Archive, optional Animus, and exact-source route](assets/workflow-unified-search.svg)
 
 ### Step 1 — You ask one question
 
 You use `holocore search`, a slash command, or an MCP tool. For example: “Why did we choose SQLite, and which files use it?”
 
-### Step 2 — HoloCore works out the type of question
+### Step 2 — HoloCore checks before searching
 
-The Router looks for the question’s intent:
+HoloCore checks that its folders and configuration exist and checks whether Atlas is fresh. This is read-only. If Atlas is missing or stale, HoloCore reports that state rather than silently rebuilding it or trusting outdated structure.
 
-- Is it asking about a rule or documented decision?
-- Is it asking about files, code structure, or dependencies?
-- Is it asking about earlier work, an error, or a conversation?
+### Step 3 — Atlas narrows the project scope first
 
-This is a quick local decision. HoloCore does not call an LLM merely to decide where to search.
+When Atlas is fresh, HoloCore searches the graph once to identify relevant files, functions, classes, paths, and relationships. These graph results become search hints for the next stage.
 
-### Step 3 — HoloCore creates one search plan
+### Step 4 — Archive checks the corresponding wiki knowledge
 
-Archive is checked for durable knowledge. Atlas is added when structure matters. Animus is added when history matters. Simple questions do not trigger every subsystem.
+Archive is searched once using the original question plus the bounded Atlas hints. This finds durable rules and decisions associated with the identified project area instead of searching the wiki without context.
 
-### Step 4 — Each selected source runs once
+### Step 5 — Animus is consulted only when history matters
 
-HoloCore prevents duplicate internal calls. If Atlas is needed, Atlas is searched once for that request—not repeatedly by separate commands or agents.
+Words such as “previous,” “again,” “earlier,” “error,” or “last time” activate one scoped Animus lookup. Questions that do not need prior work skip this stage.
 
-### Step 5 — The answers are combined and labelled
+### Step 6 — Only exact sources are opened
 
-The user receives one result set that says where each result came from. The AI can then open only the exact notes or project files required to complete the task.
+HoloCore returns one source-labelled result set. The AI opens only the exact notes and project files identified by the checks, keeping the model context focused.
+
+### Why the route cannot loop
+
+The route is built once and moves in one direction. A context-local guard rejects any attempt for the same HoloCore search to call itself. Atlas, Archive, and Animus can each run at most once per request.
 
 ### Why this matters
 
-Searching everything for every question would be slower, produce more noise, and waste AI context. HoloCore uses relevance gates so a small task remains small while a difficult architecture or debugging question can use all relevant knowledge.
+Searching everything for every question would be slower, produce more noise, and waste AI context. Atlas first narrows the scope; Archive adds trusted knowledge; Animus adds history only when needed. The final context contains relevant evidence instead of the whole repository and chat history.
 
 ## How a chat becomes useful memory
 
@@ -129,12 +131,13 @@ The user can search, remember, recall, map, and curate from any supported client
 
 ## What happens during normal project work?
 
-1. **Orient:** run `holocore status` to check that Archive, Atlas, and Animus are ready.
-2. **Retrieve:** search only the relevant knowledge before reading large parts of the project.
-3. **Work:** inspect and change the exact files required for the task.
-4. **Refresh structure:** run `atlas-refresh` after meaningful source changes so Atlas matches the project.
-5. **Record history:** use `remember` or `ingest-chat` for useful project events and conversations.
-6. **Curate carefully:** add only verified long-term knowledge to Archive and update an existing note before creating a duplicate.
+1. **Orient:** run `holocore status` to check that required folders exist and Atlas, Archive, and Animus are ready.
+2. **Map first:** use a fresh Atlas to identify the relevant project area.
+3. **Retrieve:** search corresponding Archive notes and only relevant Animus history before reading large parts of the project.
+4. **Work:** inspect and change the exact files required for the task.
+5. **Refresh structure:** run `atlas-refresh` after meaningful source changes so Atlas matches the project.
+6. **Record history:** use `remember` or `ingest-chat` for useful project events and conversations.
+7. **Curate carefully:** add only verified long-term knowledge to Archive and update an existing note before creating a duplicate.
 
 This keeps three different questions separate:
 
@@ -146,23 +149,27 @@ This keeps three different questions separate:
 
 Suppose an AI assistant is asked: “The login error is back. What did we do before, and which code could be affected?”
 
-1. HoloCore checks **Archive** for the official authentication design or constraints.
-2. It checks **Animus** because “is back” and “before” indicate previous work is relevant.
-3. It checks **Atlas** because the question asks which code could be affected.
-4. HoloCore returns source-labelled results instead of sending the entire repository and every old chat to the AI.
-5. The AI opens the exact source files identified by Atlas and verifies the implementation.
-6. After the fix, Atlas can be refreshed and the verified outcome can be remembered. A genuinely durable new rule may then be added to Archive.
+1. HoloCore checks required folders and Atlas freshness without changing anything.
+2. It searches **Atlas** first to identify authentication files, functions, and dependencies.
+3. It searches the corresponding **Archive** notes for the official authentication design or constraints.
+4. It checks **Animus** because “is back” and “before” indicate previous work is relevant.
+5. HoloCore returns source-labelled results instead of sending the entire repository and every old chat to the AI.
+6. The AI opens the exact source files identified by Atlas and verifies the implementation.
+7. After the fix, Atlas can be refreshed and the verified outcome can be remembered. A genuinely durable new rule may then be added to Archive.
 
 ## Simple glossary
 
 | HoloCore term | Plain meaning |
 |---|---|
-| **World** | One project, repository, client, or knowledge area |
-| **Sector** | A topic or focused area inside a World |
-| **Memory Shard** | One small saved memory with its source |
-| **Archive Entry** | One curated Markdown note |
-| **Signal** | One item in Atlas, such as a file, function, class, or concept |
-| **Constellation** | A related group of Signals |
+| **Archive** | Verified knowledge |
+| **Atlas** | Structural map |
+| **Animus** | Remembered history |
+| **World** | Project |
+| **Sector** | Area inside a project |
+| **Memory Shard** | Raw remembered fragment |
+| **Archive Entry** | Polished durable note |
+| **Signal** | One mapped thing |
+| **Constellation** | Group of related mapped things |
 | **CLI** | Commands typed in a terminal |
 | **MCP** | A standard way for an AI client to call HoloCore tools |
 

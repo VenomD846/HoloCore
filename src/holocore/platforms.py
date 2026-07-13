@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .policy import render_policy
+
 
 PLATFORMS = {
     "codex": ".agents/skills/holocore/SKILL.md",
@@ -15,7 +17,7 @@ PLATFORMS = {
 
 
 def instruction_text(platform: str) -> str:
-    return f"# HoloCore for {platform.title()}\n\nUse `holocore search` for curated, structural, or episodic context. Use writes only when explicitly requested. The MCP server command is `holocore-mcp`.\n"
+    return render_policy(platform.title())
 
 
 def mcp_config(command: str = "holocore-mcp") -> dict:

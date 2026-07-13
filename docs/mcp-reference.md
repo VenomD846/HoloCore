@@ -1,11 +1,11 @@
 # MCP reference
 
-`holocore-mcp` is a local stdio JSON-RPC server implementing `initialize`, `tools/list`, and `tools/call`. It reports protocol version `2025-06-18` and server version `0.2.0`.
+`holocore-mcp` is a local stdio JSON-RPC server implementing `initialize`, `tools/list`, and `tools/call`. It reports protocol version `2025-06-18` and server version `0.3.0`.
 
 | Tool | Required inputs | Effect |
 |---|---|---|
-| `holocore_search` | `query`; optional `world` | Read; relevance-gated combined search |
-| `holocore_status` | None | Read; World, Archive, Atlas, Animus status |
+| `holocore_search` | `query`; optional `world` | Read; check-first Atlas → Archive → optional Animus search with recursive-route protection |
+| `holocore_status` | None | Read; required-folder readiness plus World, Archive, Atlas, and Animus status |
 | `holocore_archive_search` | `query` | Read; curated Markdown search |
 | `holocore_archive_read` | `path` | Read; bounded note read |
 | `holocore_archive_create` | `path`, `title`, `content` | Write; creates an AI-first Archive note and rejects unsafe/conflicting paths |

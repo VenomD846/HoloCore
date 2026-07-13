@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from holocore.install import bootstrap_project
+from holocore.engine import HoloCoreEngine
 
 
 def test_bootstrap_creates_native_files_for_all_clients(tmp_path: Path) -> None:
@@ -14,7 +15,9 @@ def test_bootstrap_creates_native_files_for_all_clients(tmp_path: Path) -> None:
     expected = {
         ".holocore/config.json",
         ".holocore/instructions.md",
+        ".holocore/policy.md",
         ".holocore/mcp.json",
+        ".holocore/raw-chats",
         ".codex/config.toml",
         ".mcp.json",
         ".gemini/settings.json",
@@ -25,10 +28,24 @@ def test_bootstrap_creates_native_files_for_all_clients(tmp_path: Path) -> None:
         "CLAUDE.md",
         "GEMINI.md",
         "HOLOCORE.md",
+        "Archive",
+        "Archive/Inbox",
+        "Archive/wiki",
+        "Archive/system",
+        "Archive/system/index.md",
     }
     assert expected <= {path.relative_to(root).as_posix() for path in report.created}
     assert json.loads((root / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"]["holocore"]["cwd"] == str(root.resolve())
     assert json.loads((root / "opencode.json").read_text(encoding="utf-8"))["mcp"]["holocore"]["type"] == "local"
+    policy = (root / "CLAUDE.md").read_text(encoding="utf-8")
+    assert "Atlas first" in policy
+    assert "Archive second" in policy
+    assert "Animus third" in policy
+    assert "Never route a HoloCore search back into itself" in policy
+    assert "**Archive** = verified knowledge" in policy
+    assert "**Constellation** = group of related mapped things" in policy
+    assert "C:\\Users" not in policy
+    assert HoloCoreEngine(root).status()["readiness"] == {"ready": True, "missing": []}
 
 
 def test_bootstrap_never_overwrites_and_reports_skips(tmp_path: Path) -> None:

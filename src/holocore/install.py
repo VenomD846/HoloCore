@@ -4,7 +4,10 @@ import json
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+
+from .archive import Archive
 from .commands import render_all_commands
+from .policy import render_policy
 
 
 @dataclass
@@ -21,10 +24,11 @@ def bootstrap_project(project: Path, *, init_git: bool = True, platforms: list[s
     root = project.resolve(); root.mkdir(parents=True, exist_ok=True); created: list[Path] = []; skipped: list[Path] = []
     selected = set(platforms or ["codex", "claude", "gemini", "cursor", "opencode", "generic"])
     mcp = {"mcpServers": {"holocore": {"command": "holocore-mcp", "args": [], "cwd": str(root)}}}
-    instructions = "# HoloCore\n\nUse HoloCore Archive, Atlas, and Animus through `holocore` or `holocore-mcp`. Writes must be explicit and scoped.\n"
+    instructions = render_policy()
     files: dict[str, str] = {
         ".holocore/config.json": json.dumps({"version": 1, "world": root.name, "root": str(root), "archive": str(root / "Archive"), "state_dir": str(root / ".holocore")}, indent=2),
         ".holocore/instructions.md": instructions,
+        ".holocore/policy.md": instructions,
         ".holocore/mcp.json": json.dumps(mcp, indent=2),
         "HOLOCORE.md": instructions,
     }
@@ -41,7 +45,15 @@ def bootstrap_project(project: Path, *, init_git: bool = True, platforms: list[s
         if target.exists(): skipped.append(target); continue
         target.parent.mkdir(parents=True, exist_ok=True); target.write_text(content, encoding="utf-8"); created.append(target)
     archive = root / "Archive"
-    if not archive.exists(): archive.mkdir(); created.append(archive)
+    archive_existed = archive.exists()
+    archive_report = Archive(archive).init_vault()
+    if not archive_existed:
+        created.append(archive)
+    created.extend(archive / relative for relative in archive_report["created"])
+    raw_chats = root / ".holocore" / "raw-chats"
+    if not raw_chats.exists():
+        raw_chats.mkdir(parents=True)
+        created.append(raw_chats)
     git = "skipped"
     if init_git and not (root / ".git").exists():
         try: subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True, text=True); git = "created"

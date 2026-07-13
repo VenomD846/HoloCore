@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "holocore"
-version = "0.2.0"
+version = "0.3.0"
 description = "HoloCore unified local wiki, structural graph, episodic memory, CLI, MCP, and AI-platform engine"
 requires-python = ">=3.11"
 

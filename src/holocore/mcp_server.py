@@ -46,7 +46,7 @@ def main() -> int:
         request = {}
         try:
             request = json.loads(line); method = request.get("method"); params = request.get("params", {})
-            if method == "initialize": result = {"protocolVersion": "2025-06-18", "capabilities": {"tools": {}}, "serverInfo": {"name": "holocore", "version": "0.2.0"}}
+            if method == "initialize": result = {"protocolVersion": "2025-06-18", "capabilities": {"tools": {}}, "serverInfo": {"name": "holocore", "version": "0.3.0"}}
             elif method == "tools/list": result = {"tools": TOOLS}
             elif method == "tools/call": result = {"content": [{"type": "text", "text": json.dumps(call(engine, params["name"], params.get("arguments", {})), ensure_ascii=False, default=str)}]}
             else: result = {}

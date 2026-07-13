@@ -5,9 +5,23 @@
 - **Archive is the project library.** It owns trusted, durable Markdown knowledge.
 - **Atlas is the project map.** It owns structural signals and relationships extracted from project files.
 - **Animus is the project diary.** It owns episodic history in scoped Worlds and Sectors.
-- **HoloCore is the coordinator.** It routes a query to Archive always, to Atlas for structure-oriented terms, and to Animus for history-oriented terms.
+- **HoloCore is the coordinator.** It checks readiness first, uses a fresh Atlas to narrow scope, searches corresponding Archive notes, and consults Animus only when history is relevant.
 
 See the [visual guide](visual-guide.md) for a numbered explanation of every workflow.
+
+## Canonical vocabulary
+
+| Term | Simple definition |
+|---|---|
+| **Archive** | Verified knowledge |
+| **Atlas** | Structural map |
+| **Animus** | Remembered history |
+| **World** | Project |
+| **Sector** | Area inside a project |
+| **Memory Shard** | Raw remembered fragment |
+| **Archive Entry** | Polished durable note |
+| **Signal** | One mapped thing |
+| **Constellation** | Group of related mapped things |
 
 ## Everyday commands
 

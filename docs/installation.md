@@ -33,6 +33,19 @@ holocore --root "C:\path\to\project" status
 
 Use `init --no-git` to avoid Git initialization. Bootstrap creates only missing files and reports existing files under `skipped`.
 
+### Folders created by `init`
+
+| Path | Purpose |
+|---|---|
+| `Archive/Inbox` | Temporary landing area for knowledge that still needs curation |
+| `Archive/wiki` | Durable linked Archive Entries |
+| `Archive/system/index.md` | Starting index used to navigate the Archive |
+| `.holocore/raw-chats` | Protected raw-chat audit copies |
+| `.holocore` | Configuration, Atlas JSON, Animus database, policy, and generated state |
+| Client-specific command/skill folders | HoloCore commands for the selected AI clients |
+
+Every path is checked before creation. Initialization does not overwrite an existing file, recreate the project recursively, or invoke a HoloCore route.
+
 ## Upgrade or uninstall
 
 For an editable checkout, pull or replace the checkout and reinstall with `python -m pip install -e .`. Uninstall the package with `python -m pip uninstall holocore`. Project-created `.holocore`, Archive, and client files are user data and are intentionally not deleted automatically.
@@ -42,7 +55,7 @@ For an editable checkout, pull or replace the checkout and reinstall with `pytho
 The local wheel is built with `uv build` and was validated in a fresh temporary virtual environment. Install it on another computer with:
 
 ```powershell
-uv tool install .\holocore-0.2.0-py3-none-any.whl
+uv tool install .\holocore-0.3.0-py3-none-any.whl
 holocore --root "C:\path\to\project" init
 ```
 

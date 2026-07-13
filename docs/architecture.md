@@ -11,7 +11,7 @@ HoloCore is one Python package under `src/holocore`. Obsidian Second Brain, Grap
 - `cli.py`: command parsing and human/JSON output.
 - `mcp_server.py`: local stdio MCP surface.
 - `engine.py`: shared runtime, search cache, lifecycle entry points.
-- `router.py`: one-pass relevance routing.
+- `router.py`: check-first, non-recursive route planning and ordered retrieval.
 - `archive.py`: bounded native Markdown vault operations with AI-first validation and atomic writes.
 - `atlas.py`: incremental Python AST and generic-file graph extraction, node-link JSON, freshness, paths, and affected analysis.
 - `animus.py`: SQLite Worlds, Sectors, Memory Shards, provenance, deduplication, search, and sync.
@@ -19,9 +19,9 @@ HoloCore is one Python package under `src/holocore`. Obsidian Second Brain, Grap
 
 ## Data flow
 
-`CLI or MCP -> HoloCoreEngine -> Router -> Archive / Atlas / Animus -> source-labelled result`
+`CLI or MCP -> readiness/freshness check -> Atlas -> Archive -> optional Animus -> exact sources -> source-labelled result`
 
-Archive is always searched by unified search. Atlas is selected for structural terms; Animus is selected for history terms. Each selected subsystem runs at most once. This is deterministic keyword routing today, not semantic LLM routing.
+Unified search checks Atlas freshness before retrieval. A fresh Atlas narrows the project scope first; one Archive search then uses that graph context to find corresponding durable notes. Animus runs last only when the query indicates prior work, errors, attempts, or conversations are relevant. A context-local recursion guard rejects a route that calls itself, and each selected subsystem runs at most once. Routing remains deterministic and local rather than LLM-based.
 
 ![Unified search routes each query once and avoids duplicate subsystem calls](assets/workflow-unified-search.svg)
 
