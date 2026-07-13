@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,6 +7,9 @@ name = "holocore"
 version = "0.3.0"
 description = "HoloCore unified local wiki, structural graph, episodic memory, CLI, MCP, and AI-platform engine"
 requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
+authors = [{ name = "VenomD846" }]
 
 [project.scripts]
 holocore = "holocore.cli:main"

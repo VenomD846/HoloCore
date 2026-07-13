@@ -64,6 +64,12 @@ Implemented today: native Archive operations, Atlas JSON/HTML graph extraction a
 
 Reads and health checks are safe by default. Initialization never overwrites existing integration files. Archive creation, Atlas refresh/HTML generation, and Animus capture/refinement are explicit writes. The baseline remains local and keyless when no remote LLM is configured.
 
+## License and commercial use
+
+HoloCore is licensed under the [Apache License 2.0](LICENSE). It may be used, modified, distributed, and used commercially subject to the license terms. The HoloCore name and branding are not granted by the software license except for reasonable attribution and identification of the project's origin.
+
+Third-party behavioral inspirations and their licenses are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## Development verification
 
 ```powershell
