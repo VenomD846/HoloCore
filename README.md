@@ -1,8 +1,8 @@
-# HoloCore
+# HoloCore Context Engine
 
-HoloCore is a self-contained local knowledge engine combining a curated Markdown Archive, a native structural Atlas, and SQLite-backed episodic Animus behind one CLI and MCP server.
+**HoloCore Context Engine** is a self-contained local AI knowledge engine combining a curated Markdown Archive, a native structural Atlas, and SQLite-backed episodic Animus behind one CLI and MCP server. The product name is **HoloCore Context Engine**; its short name and CLI command remain `HoloCore` and `holocore`.
 
-![HoloCore overview showing AI clients connected through one engine to Archive, Atlas, and Animus](docs/assets/holocore-overview.svg)
+![HoloCore Context Engine checks Atlas, reads matching Archive knowledge, optionally recalls Animus history, and sends focused context to reduce input tokens](docs/assets/holocore-context-engine-token-savings.png)
 
 Current version: `0.3.0`. The runtime is HoloCore-native and does **not** import, launch, or require the original Obsidian Second Brain, Graphify, or MemPalace applications. Those projects served as behavioral references during the rewrite and are not included as runtime components.
 
@@ -38,11 +38,18 @@ No. HoloCore's Atlas is a self-contained HTML graph that opens in a normal web b
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e .
-holocore --root "C:\path\to\project" init
-holocore --root "C:\path\to\project" status
+$WorldRoot = Read-Host "Enter the project folder to use as a HoloCore World"
+holocore --root $WorldRoot init
+holocore --root $WorldRoot status
 ```
 
 Implemented today: native Archive operations, Atlas JSON/HTML graph extraction and queries, Animus memory storage and recall, raw-chat auditing with distilled memory, configurable OpenAI-compatible LLM providers, unified search, CLI/MCP tools, generated slash commands/skills, and non-destructive client bootstrap.
+
+## Claude discovery
+
+Running `holocore init` generates project-local `CLAUDE.md`, `.mcp.json`, HoloCore commands, and shared policy files when those paths are missing. After reopening the World in Claude, Claude can discover the HoloCore instructions and start `holocore-mcp`. Existing Claude configuration is never overwritten; merge the `holocore` MCP entry manually when a project already has `.mcp.json`.
+
+Recommended GitHub discovery topics are `claude-code`, `model-context-protocol`, `mcp-server`, `ai-context`, `knowledge-graph`, `second-brain`, `ai-memory`, `obsidian`, and `local-first`.
 
 ## Documentation
 
@@ -58,6 +65,7 @@ Implemented today: native Archive operations, Atlas JSON/HTML graph extraction a
 - [Troubleshooting](docs/troubleshooting.md)
 - [Portability and AI-client guide](docs/portability-ai-clients.md)
 - [Capability status](docs/capability-status.md)
+- [Product identity and discovery tags](BRANDING.md)
 - [Acknowledgments and third-party provenance](THIRD_PARTY_NOTICES.md)
 
 ## Safety model

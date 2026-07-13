@@ -66,6 +66,8 @@ The route is built once and moves in one direction. A context-local guard reject
 
 Searching everything for every question would be slower, produce more noise, and waste AI context. Atlas first narrows the scope; Archive adds trusted knowledge; Animus adds history only when needed. The final context contains relevant evidence instead of the whole repository and chat history.
 
+![Without HoloCore the AI receives the whole project history; HoloCore Context Engine instead checks Atlas, reads matching Archive knowledge, optionally recalls Animus, and sends focused context](assets/holocore-context-engine-token-savings.png)
+
 ## How a chat becomes useful memory
 
 ![A chat is audited, distilled in one extraction pass, deduplicated, and stored in Animus](assets/workflow-memory-refinement.svg)

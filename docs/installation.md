@@ -14,8 +14,11 @@ See [prerequisites and optional graph tools](prerequisites.md) for the required 
 
 ## Install from this checkout
 
+HoloCore can be stored in any folder. The package installation location is managed by Python or `uv`; the World and its data are placed wherever you select with `--root`.
+
 ```powershell
-Set-Location "C:\Cursor projects\HoloCore"
+$HoloCoreSource = Read-Host "Enter the folder containing the HoloCore source"
+Set-Location -LiteralPath $HoloCoreSource
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -29,9 +32,12 @@ holocore-mcp --help
 ## Initialize a project
 
 ```powershell
-holocore --root "C:\path\to\project" init
-holocore --root "C:\path\to\project" status
+$WorldRoot = Read-Host "Enter the project folder to use as a HoloCore World"
+holocore --root $WorldRoot init
+holocore --root $WorldRoot status
 ```
+
+The selected World may be an existing project or a new folder. HoloCore keeps its generated state under that World rather than assuming a fixed machine-specific location.
 
 Use `init --no-git` to avoid Git initialization. Bootstrap creates only missing files and reports existing files under `skipped`.
 
