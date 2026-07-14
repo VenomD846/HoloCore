@@ -15,6 +15,7 @@ from .lifecycle import installation_check, sync_all, uninstall_tool, update_inst
 from .animus import Animus
 from .animus_mining import AnimusMiner, MiningOptions
 from .animus_retrieval import AnimusRetriever
+from .archive_source import sync_archive_source
 from . import __version__
 
 
@@ -137,6 +138,7 @@ def main() -> int:
     sub.add_parser("doctor")
     home_command = sub.add_parser("home", help="Show or select the shared HoloCore Home")
     home_command.add_argument("path", nargs="?")
+    home_command.add_argument("--path", dest="home_path", help="Shared HoloCore Home directory (alternative to the positional path)")
     sub.add_parser("worlds", help="List projects linked to the shared brain")
     global_graph = sub.add_parser("global-graph", help="Build an Atlas-only graph across registered Worlds")
     global_graph.add_argument("--output")
@@ -173,6 +175,8 @@ def main() -> int:
     sub.add_parser("archive-init")
     archive_search = sub.add_parser("archive-search"); archive_search.add_argument("query")
     archive_create = sub.add_parser("archive-create"); archive_create.add_argument("path"); archive_create.add_argument("content")
+    archive_source = sub.add_parser("archive-source-sync", help="One-way sync curated Markdown into the Shared Archive")
+    archive_source.add_argument("--source", required=True, help="Existing curated Markdown directory")
     args = parser.parse_args()
     root = Path(getattr(args, "path", None) or args.root).resolve() if args.command in {"setup", "init", "connect"} else Path(args.root).resolve()
 
@@ -183,7 +187,8 @@ def main() -> int:
         return 0
     if args.command == "home":
         manager = HomeManager()
-        value = manager.select_home(args.path) if args.path else {
+        selected_path = args.home_path or args.path
+        value = manager.select_home(selected_path) if selected_path else {
             "home": str(manager.home), "archive": str(manager.archive), "worlds_file": str(manager.worlds_path), "selected": manager.pointer_path.exists()
         }
         print(json.dumps(value, indent=2, default=str) if args.json else f"HoloCore Home: {value['home']}\nShared Archive: {Path(value['home']) / 'Archive'}\nWorld registry: {Path(value['home']) / 'worlds.json'}")
@@ -284,6 +289,7 @@ def main() -> int:
     elif args.command == "archive-init": value = engine.router.archive.init_vault()
     elif args.command == "archive-search": value = engine.router.archive.search(args.query)
     elif args.command == "archive-create": value = engine.router.archive.create(args.path, args.content)
+    elif args.command == "archive-source-sync": value = sync_archive_source(args.source, HomeManager().home)
     else: raise AssertionError(args.command)
 
     if args.json:
