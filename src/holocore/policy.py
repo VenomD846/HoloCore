@@ -67,6 +67,22 @@ check-first, non-recursive route for each request.
 Build one route plan and execute it once. Never route a HoloCore search back into itself.
 Each selected subsystem may run at most once per request.
 
+## Source coordination
+
+- HoloCore is the single routing layer for project context.
+- The central Second Brain is a curated Archive source, not a second automatic
+  conversation-capture engine. Read its indexed, linked notes when the Archive
+  route selects them; do not mine the whole vault.
+- Legacy Graphify outputs and MemPalace remain compatibility or migration sources.
+  Query them only when HoloCore explicitly identifies a gap or the user asks for
+  historical compatibility. Do not fan out to Graphify, MemPalace, Atlas, Archive,
+  and Animus independently for the same request.
+- Treat generated files and databases as non-source artifacts: `holocore-out`,
+  `graphify-out`, `.holocore`, `.git`, MCP logs, caches, and imported copies must
+  not be ingested as new knowledge.
+- Never write the same conversation or fact to both MemPalace and Animus. HoloCore
+  Animus is the default destination for new episodic history.
+
 ## Knowledge ownership
 
 - Archive owns verified, durable, reusable knowledge.
@@ -97,6 +113,10 @@ Each selected subsystem may run at most once per request.
 - Record uncertain claims as open questions, never as settled facts.
 - Refresh Atlas after meaningful source changes.
 - Store meaningful project history in Animus; do not mine the entire Archive.
+- Promote verified durable knowledge into the central Archive only once, updating
+  an existing note before creating a new one.
+- If a route result points to another HoloCore command, do not execute it
+  automatically unless the user explicitly requested that write or refresh.
 """
 
 
