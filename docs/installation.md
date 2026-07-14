@@ -163,7 +163,7 @@ The built-in upgrade path is:
 holocore update
 ```
 
-It uses `uv` to reinstall HoloCore from the project Git repository and then runs all-World reconciliation. To reconcile without reinstalling:
+It uses `uv tool upgrade holocore`, which is safe while `holocore.exe` is running on Windows, and then runs all-World reconciliation. To reconcile without reinstalling:
 
 ```powershell
 holocore sync-all
