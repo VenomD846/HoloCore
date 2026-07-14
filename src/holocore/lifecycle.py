@@ -71,8 +71,17 @@ def update_install(home: Path | None = None, *, repository: str = REPOSITORY) ->
     uv = shutil.which("uv")
     if not uv:
         raise RuntimeError("uv is required for self-update. Install uv, then run `holocore update` again.")
-    command = [uv, "tool", "install", "--force", f"git+{repository}"]
-    completed = subprocess.run(command, check=True, capture_output=True, text=True)
+    # `uv tool upgrade` avoids Windows file-lock failures caused by trying to
+    # replace the currently running holocore.exe with `tool install --force`.
+    command = [uv, "tool", "upgrade", "holocore"]
+    completed = subprocess.run(command, check=False, capture_output=True, text=True)
+    if completed.returncode != 0:
+        fallback = [uv, "tool", "install", "--force", f"git+{repository}"]
+        completed = subprocess.run(fallback, check=False, capture_output=True, text=True)
+        command = fallback
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout or "uv returned no diagnostic output").strip()
+        raise RuntimeError(f"HoloCore update failed (exit {completed.returncode}): {detail}")
     return {
         "updated": True,
         "command": command,
