@@ -255,6 +255,21 @@ def bootstrap_project(
         _merge_instructions(root / "CLAUDE.md", instructions, created, updated, skipped)
         _merge_json(root / ".mcp.json", mcp, created, updated, skipped, warnings)
         _merge_capture_hook(root / ".claude/settings.json", "SessionEnd", "claude", created, updated, skipped, warnings)
+        _write_generated(
+            root / ".claude/commands/holocore.md",
+            """---
+description: Show HoloCore status, paths, and the available project commands.
+---
+
+# HoloCore
+
+Run `holocore status` and `holocore paths` from the project root. HoloCore checks
+Atlas first, then the active Archive and Shared knowledge, and consults Animus
+only when the question needs history. Use `/holocore-search` for a focused
+knowledge search or `/holocore-doctor` to diagnose the MCP connection.
+""",
+            created, updated, skipped,
+        )
     if "gemini" in selected:
         _merge_instructions(root / "GEMINI.md", instructions, created, updated, skipped)
         _merge_json(root / ".gemini/settings.json", mcp, created, updated, skipped, warnings)

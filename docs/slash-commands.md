@@ -9,6 +9,10 @@
 
 The generated command or skill delegates to the stable HoloCore CLI.
 
+Claude also receives a top-level `/holocore` orientation command. It reports
+status and paths and points to the specific commands below. Use `/holocore-search`
+for a focused knowledge search and `/holocore-doctor` for MCP diagnostics.
+
 | Command or skill | Purpose | Writes |
 |---|---|---|
 | `holocore-setup` | Select/register Home and World, build Atlas, connect clients, install capture | Yes |
