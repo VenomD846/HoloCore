@@ -16,6 +16,7 @@ from .animus import Animus
 from .animus_mining import AnimusMiner, MiningOptions
 from .animus_retrieval import AnimusRetriever
 from .archive_source import sync_archive_source
+from .archive_promote import promote_sources
 from . import __version__
 
 
@@ -177,6 +178,9 @@ def main() -> int:
     archive_create = sub.add_parser("archive-create"); archive_create.add_argument("path"); archive_create.add_argument("content")
     archive_source = sub.add_parser("archive-source-sync", help="One-way sync curated Markdown into the Shared Archive")
     archive_source.add_argument("--source", required=True, help="Existing curated Markdown directory")
+    promote = sub.add_parser("archive-promote", help="Generate Markdown Archive entries from existing source files")
+    promote.add_argument("--source", required=True, help="Project or documentation directory to promote")
+    promote.add_argument("--destination", choices=("world", "shared"), default="world")
     args = parser.parse_args()
     root = Path(getattr(args, "path", None) or args.root).resolve() if args.command in {"setup", "init", "connect"} else Path(args.root).resolve()
 
@@ -290,6 +294,10 @@ def main() -> int:
     elif args.command == "archive-search": value = engine.router.archive.search(args.query)
     elif args.command == "archive-create": value = engine.router.archive.create(args.path, args.content)
     elif args.command == "archive-source-sync": value = sync_archive_source(args.source, HomeManager().home)
+    elif args.command == "archive-promote":
+        config = Config.load(root=root); manager = HomeManager(config.home)
+        destination = manager.archive / "Shared" if args.destination == "shared" else manager.archive / "Worlds" / str(config.world_id or root.name)
+        value = promote_sources(args.source, destination)
     else: raise AssertionError(args.command)
 
     if args.json:
