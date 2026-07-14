@@ -40,6 +40,8 @@ The first interactive setup asks for this location, or you can pass it explicitl
 holocore setup --home <Home>
 ```
 
+If no Home has been selected and setup is non-interactive, HoloCore uses `%USERPROFILE%\HoloCore` on Windows or `~/HoloCore` elsewhere.
+
 HoloCore remembers the choice. Selecting another Home later does not move existing data.
 
 ## Which graph should I open?

@@ -30,6 +30,8 @@ holocore home <Home>
 holocore setup
 ```
 
+When setup runs non-interactively without a previously selected Home, the portable default is `%USERPROFILE%\HoloCore` on Windows (or `~/HoloCore` on other systems). Use `--home` whenever you want a different location.
+
 The selected location is remembered by a small user-level pointer. Later projects reuse it automatically:
 
 ```powershell

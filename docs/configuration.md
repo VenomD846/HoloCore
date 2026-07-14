@@ -20,6 +20,8 @@ Changing Home selects another `Archive` and `worlds.json`; it does not copy or d
 
 ## Home and Archive paths
 
+The default Home is `%USERPROFILE%\HoloCore` on Windows or `~/HoloCore` on other systems. This is only a fallback; users can select any writable Home with `holocore setup --home <Home>`.
+
 ```text
 <Home>/
 ├── Archive/
