@@ -52,7 +52,7 @@ def test_update_install_upgrades_then_reconciles(monkeypatch, tmp_path: Path) ->
     monkeypatch.setattr(
         lifecycle.subprocess,
         "run",
-        lambda command, **kwargs: calls.append(command) or SimpleNamespace(stdout="updated\n"),
+        lambda command, **kwargs: calls.append(command) or SimpleNamespace(stdout="updated\n", returncode=0),
     )
     monkeypatch.setattr(
         lifecycle,
@@ -65,9 +65,8 @@ def test_update_install_upgrades_then_reconciles(monkeypatch, tmp_path: Path) ->
     assert calls == [[
         "C:/tools/uv.exe",
         "tool",
-        "install",
-        "--force",
-        "git+https://github.com/VenomD846/HoloCore.git",
+        "upgrade",
+        "holocore",
     ]]
     assert result["updated"] is True
     assert result["installer_output"] == "updated"

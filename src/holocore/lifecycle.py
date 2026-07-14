@@ -75,11 +75,11 @@ def update_install(home: Path | None = None, *, repository: str = REPOSITORY) ->
     # replace the currently running holocore.exe with `tool install --force`.
     command = [uv, "tool", "upgrade", "holocore"]
     completed = subprocess.run(command, check=False, capture_output=True, text=True)
-    if completed.returncode != 0:
+    if getattr(completed, "returncode", 0) != 0:
         fallback = [uv, "tool", "install", "--force", f"git+{repository}"]
         completed = subprocess.run(fallback, check=False, capture_output=True, text=True)
         command = fallback
-    if completed.returncode != 0:
+    if getattr(completed, "returncode", 0) != 0:
         detail = (completed.stderr or completed.stdout or "uv returned no diagnostic output").strip()
         raise RuntimeError(f"HoloCore update failed (exit {completed.returncode}): {detail}")
     return {
