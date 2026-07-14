@@ -1,5 +1,7 @@
 # HoloCore Context Engine
 
+![HoloCore Context Engine icon](docs/assets/holocore-icon.png)
+
 **HoloCore Context Engine** is a local AI knowledge system for all your projects. Version `0.5.0` combines one shared Markdown Archive with a project-local structural Atlas and project-local episodic Animus behind one CLI and MCP server.
 
 ![HoloCore Context Engine checks Atlas, reads matching Archive knowledge, optionally recalls Animus history, and sends focused context to reduce input tokens](docs/assets/holocore-context-engine-token-savings.png)
