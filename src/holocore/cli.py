@@ -141,7 +141,8 @@ def main() -> int:
     global_graph = sub.add_parser("global-graph", help="Build an Atlas-only graph across registered Worlds")
     global_graph.add_argument("--output")
     sub.add_parser("sync-all", help="Reconcile every registered World")
-    sub.add_parser("update", help="Update HoloCore and reconcile every World")
+    update = sub.add_parser("update", help="Update HoloCore and reconcile every World")
+    update.add_argument("--no-sync", action="store_true", help="Only update the CLI; skip the potentially lengthy World/Atlas reconciliation")
     sub.add_parser("install-check", help="Show installed version and safe upgrade/uninstall commands")
     sub.add_parser("uninstall", help="Uninstall the HoloCore CLI while preserving project and Home data")
     search = sub.add_parser("search"); search.add_argument("query"); search.add_argument("--world")
@@ -207,9 +208,14 @@ def main() -> int:
         print(json.dumps(value, indent=2, default=str) if args.json else f"Reconciled {value['updated']} of {value['count']} Worlds ({value['failed']} failed).")
         return 0
     if args.command == "update":
-        value = update_install()
+        value = update_install(reconcile=not args.no_sync)
         reconciliation = value["reconciliation"]
-        print(json.dumps(value, indent=2, default=str) if args.json else f"HoloCore updated. Reconciled {reconciliation['updated']} of {reconciliation['count']} Worlds.")
+        if args.json:
+            print(json.dumps(value, indent=2, default=str))
+        elif reconciliation is None:
+            print("HoloCore updated. World reconciliation skipped. Run `holocore sync-all` when ready.")
+        else:
+            print(f"HoloCore updated. Reconciled {reconciliation['updated']} of {reconciliation['count']} Worlds.")
         return 0
     if args.command == "install-check":
         value = installation_check()

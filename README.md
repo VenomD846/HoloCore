@@ -102,7 +102,14 @@ holocore sync-all
 holocore update
 ```
 
-`sync-all` reconciles generated integration files and refreshes Atlas for every registered World. `update` updates the installed Git version of HoloCore, then performs the same all-World reconciliation. Missing project folders are reported without stopping other Worlds.
+`sync-all` reconciles generated integration files and refreshes Atlas for every registered World. `update` upgrades the installed CLI and then performs the same all-World reconciliation. For a large installation, update the CLI first and reconcile separately:
+
+```powershell
+holocore update --no-sync
+holocore sync-all
+```
+
+The second command can take time because it reads each registered World's source files and rebuilds its Atlas. Press `Ctrl+C` to stop a refresh safely; the installed CLI remains updated. Close active Claude/Codex MCP sessions before updating if Windows reports that `holocore.exe` is in use. Missing project folders are reported without stopping other Worlds.
 
 ## AI clients
 

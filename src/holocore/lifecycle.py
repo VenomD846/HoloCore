@@ -67,7 +67,7 @@ def sync_all(home: Path | None = None) -> dict[str, Any]:
     }
 
 
-def update_install(home: Path | None = None, *, repository: str = REPOSITORY) -> dict[str, Any]:
+def update_install(home: Path | None = None, *, repository: str = REPOSITORY, reconcile: bool = True) -> dict[str, Any]:
     uv = shutil.which("uv")
     if not uv:
         raise RuntimeError("uv is required for self-update. Install uv, then run `holocore update` again.")
@@ -84,12 +84,13 @@ def update_install(home: Path | None = None, *, repository: str = REPOSITORY) ->
         if "os error 32" in detail.lower() or "being used by another process" in detail.lower():
             detail += " Close Claude Code, Codex, other MCP clients, and any running holocore processes, then run `uv tool upgrade holocore` from a fresh PowerShell window."
         raise RuntimeError(f"HoloCore update failed (exit {completed.returncode}): {detail}")
-    return {
+    result = {
         "updated": True,
         "command": command,
         "installer_output": completed.stdout.strip(),
-        "reconciliation": sync_all(home),
+        "reconciliation": sync_all(home) if reconcile else None,
     }
+    return result
 
 
 __all__ = ["REPOSITORY", "installation_check", "sync_all", "uninstall_tool", "update_install"]
