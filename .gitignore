@@ -16,6 +16,7 @@ Archive/
 
 # Generated graph artifacts
 graphify-out/
+holocore-out/
 
 # Local AI-client configuration containing machine-specific paths
 .claude/
