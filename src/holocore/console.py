@@ -105,8 +105,14 @@ class ConsoleService:
 
 def serve_console(root: Path, host: str = "127.0.0.1", port: int = 0, open_browser: bool = True) -> int:
     service = ConsoleService(root); _Handler.service = service
+    # Keep one discoverable snapshot in Home; the live server remains the
+    # editable surface and is still opened by the CLI.
+    home = Path(service.payload["paths"]["home"])
+    export_path = home / "Console" / "console.html"
+    export_path.parent.mkdir(parents=True, exist_ok=True)
+    export_path.write_text(render_console_html(service.payload), encoding="utf-8")
     server = ThreadingHTTPServer((host, port), _Handler); url = f"http://{host}:{server.server_port}/"
-    print(json.dumps({"url": url, "world": service.payload["world"], "close": "Ctrl+C"}, indent=2))
+    print(json.dumps({"url": url, "html": str(export_path), "world": service.payload["world"], "close": "Ctrl+C"}, indent=2))
     if open_browser: threading.Timer(0.2, lambda: webbrowser.open(url)).start()
     try: server.serve_forever()
     except KeyboardInterrupt: pass
@@ -114,4 +120,12 @@ def serve_console(root: Path, host: str = "127.0.0.1", port: int = 0, open_brows
     return 0
 
 
-__all__ = ["build_console_payload", "render_console_html", "serve_console"]
+def export_console(root: Path) -> Path:
+    service = ConsoleService(root)
+    path = Path(service.payload["paths"]["home"]) / "Console" / "console.html"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_console_html(service.payload), encoding="utf-8")
+    return path
+
+
+__all__ = ["build_console_payload", "export_console", "render_console_html", "serve_console"]

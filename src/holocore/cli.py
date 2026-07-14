@@ -139,6 +139,7 @@ def main() -> int:
     console = sub.add_parser("console", help="Open the local HoloCore browser Console")
     console.add_argument("--port", type=int, default=0, help="Local port (0 chooses a free port)")
     console.add_argument("--no-open", action="store_true", help="Print the URL without opening a browser")
+    console.add_argument("--export", action="store_true", help="Write Home\\Console\\console.html and exit")
     sub.add_parser("doctor")
     home_command = sub.add_parser("home", help="Show or select the shared HoloCore Home")
     home_command.add_argument("path", nargs="?")
@@ -200,7 +201,10 @@ def main() -> int:
         print(json.dumps(value, indent=2, default=str))
         return 0
     if args.command == "console":
-        from .console import serve_console
+        from .console import export_console, serve_console
+        if args.export:
+            print(export_console(root))
+            return 0
         return serve_console(root, port=args.port, open_browser=not args.no_open)
     elif args.command == "paths":
         value = world_paths(root, Config.load(root=root))
