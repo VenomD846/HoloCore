@@ -7,7 +7,7 @@ from typing import Any
 
 from .archive import Archive, ArchiveConflictError
 
-SKIP = {".git", ".obsidian", ".holocore", "holocore-out", "graphify-out", "node_modules", "raw"}
+SKIP = {".git", ".obsidian", ".holocore", "holocore-out", "graphify-out", "node_modules", "raw", "wiki", "Archive"}
 EXTENSIONS = {".md", ".txt", ".rst", ".html"}
 
 
