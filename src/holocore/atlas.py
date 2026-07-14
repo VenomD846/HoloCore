@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
@@ -24,7 +25,7 @@ DEFAULT_AFFECTED_RELATIONS = frozenset(
 _EXCLUDES = frozenset(
     {
         ".git", ".hg", ".svn", ".holocore", ".mypy_cache", ".pytest_cache", ".ruff_cache",
-        ".tox", ".venv", "__pycache__", "build", "dist", "graphify-out",
+        ".tox", ".venv", "__pycache__", "build", "dist", "graphify-out", "holocore-out",
         "node_modules", "venv",
     }
 )
@@ -160,6 +161,10 @@ class _PyVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+ATLAS_OUT_DIR = "holocore-out"
+LEGACY_ATLAS_OUT_DIR = "graphify-out"
+
+
 class Atlas:
     """Incremental structural graph and in-process query facade."""
 
@@ -171,7 +176,14 @@ class Atlas:
         exclude: Iterable[str] = (),
     ) -> None:
         self.root = Path(root).expanduser().resolve()
-        destination = Path(output) if output is not None else Path("graphify-out") / "graph.json"
+        if output is None:
+            legacy = self.root / LEGACY_ATLAS_OUT_DIR
+            current = self.root / ATLAS_OUT_DIR
+            if legacy.is_dir() and not current.exists():
+                shutil.move(str(legacy), str(current))
+            destination = Path(ATLAS_OUT_DIR) / "graph.json"
+        else:
+            destination = Path(output)
         self.graph_path = destination if destination.is_absolute() else self.root / destination
         # Native runtime compatibility path; graph_path remains the public
         # node-link output contract used by structural tooling.

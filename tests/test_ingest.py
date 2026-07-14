@@ -248,7 +248,7 @@ def test_engine_ingest_integrates_raw_memory_archive_and_graph(
     assert first["integrated"][0]["memory_shards"]
     assert first["integrated"][0]["archive_entry"]["created"].startswith("wiki/sources/")
     assert Path(first["raw_path"]).is_file()
-    assert (world / "graphify-out/graph.json").is_file()
+    assert (world / "holocore-out/graph.json").is_file()
     assert any(hit["source_file"] == "HOLOCORE-SOURCES.md" for hit in engine.router.atlas.search("decision"))
     assert second["deduplicated"] is True
     assert second["integrated"][0]["memory_shards"] == []

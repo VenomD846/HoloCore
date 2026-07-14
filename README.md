@@ -25,9 +25,11 @@ You choose one **HoloCore Home**. Its `Archive` folder is one Obsidian-ready vau
 └── worlds.json                    Registered World list
 
 <project>/
+├── holocore-out/
+│   ├── graph.json                 Public Atlas graph
+│   └── atlas.html                 Interactive structure graph
 └── .holocore/
-    ├── atlas.json                 Project structure
-    ├── atlas.html                 Interactive structure graph
+    ├── atlas.json                 Atlas compatibility mirror
     ├── animus.db                  Project history
     └── raw-chats/                 Original chat audits
 ```

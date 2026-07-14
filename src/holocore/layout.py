@@ -6,6 +6,7 @@ import json
 import tomllib
 
 from .config import Config
+from .atlas import ATLAS_OUT_DIR
 
 
 def world_paths(root: Path, config: Config | None = None) -> dict[str, str]:
@@ -26,8 +27,8 @@ def world_paths(root: Path, config: Config | None = None) -> dict[str, str]:
         "archive_inbox": str(config.vault / "Inbox"),
         "archive_entries": str(config.vault / "wiki"),
         "archive_index": str(config.vault / "system" / "index.md"),
-        "atlas_json": str(root / "graphify-out" / "graph.json"),
-        "atlas_html": str(root / "graphify-out" / "atlas.html"),
+        "atlas_json": str(root / ATLAS_OUT_DIR / "graph.json"),
+        "atlas_html": str(root / ATLAS_OUT_DIR / "atlas.html"),
         "atlas_runtime": str(config.atlas_path),
         "memory_shards": str(config.animus_path),
         "raw_chats": str(config.raw_chats_path),
@@ -59,8 +60,8 @@ This folder is one **World**: `{root.name}`.
 | Shared Archive Entries | `{paths['shared_archive']}` | Knowledge intentionally shared across projects |
 | Source Inbox | `{paths['ingest_inbox']}` | Drop files here; HoloCore ingests new content on the next search or AI capture hook |
 | Immutable raw sources | `{paths['raw_sources']}` | Content-addressed originals retained for audit and reprocessing |
-| Atlas JSON | `graphify-out/graph.json` | Machine-readable structural map (`.holocore/atlas.json` remains a compatibility copy) |
-| Atlas HTML | `graphify-out/atlas.html` | Interactive graph for people and AI tools (`.holocore/atlas.html` remains a compatibility copy) |
+| Atlas JSON | `holocore-out/graph.json` | Machine-readable structural map (`.holocore/atlas.json` remains a compatibility copy) |
+| Atlas HTML | `holocore-out/atlas.html` | Interactive graph for people and AI tools (`.holocore/atlas.html` remains a compatibility copy) |
 | Memory Shards | `.holocore/animus.db` | Searchable remembered history in SQLite |
 | Raw chat audit | `.holocore/raw-chats/` | Original chats retained for traceability |
 

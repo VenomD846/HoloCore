@@ -20,8 +20,8 @@ See the [visual guide](visual-guide.md) for illustrated versions of these workfl
 | `<Home>/Archive/Worlds/<world-id>` | One World | Verified project notes and promoted memory |
 | `<Home>/Archive/Shared` | All Worlds by explicit choice | Reusable cross-project notes |
 | `<Home>/worlds.json` | HoloCore | Registered World IDs and project roots |
-| `<project>/graphify-out/graph.json` | HoloCore | Machine-readable project structure used by AI clients |
-| `<project>/graphify-out/atlas.html` | HoloCore | Interactive force-directed graph for people |
+| `<project>/holocore-out/graph.json` | HoloCore | Machine-readable project structure used by AI clients |
+| `<project>/holocore-out/atlas.html` | HoloCore | Interactive force-directed graph for people |
 | `<project>/.holocore/atlas.json` and `atlas.html` | HoloCore | Compatibility copies; refreshed from the same focused graph |
 | `<project>/.holocore/animus.db` | HoloCore | SQLite Memory Shards |
 | `<project>/.holocore/raw-chats` | HoloCore | Original conversation audits |

@@ -40,7 +40,7 @@ _COMMON_EXCLUDES = {
     "__pycache__",
     "build",
     "dist",
-    "graphify-out",
+    "graphify-out", "holocore-out",
     "node_modules",
     "venv",
 }

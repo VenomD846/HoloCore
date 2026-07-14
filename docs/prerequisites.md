@@ -57,7 +57,7 @@ cd <project>
 holocore atlas-view
 ```
 
-The main graph is generated at `<project>/graphify-out/atlas.html` and opens in a normal browser. The legacy path `<project>/.holocore/atlas.html` is refreshed as an identical compatibility copy. AI clients consume `<project>/graphify-out/graph.json` directly.
+The main graph is generated at `<project>/holocore-out/atlas.html` and opens in a normal browser. The legacy path `<project>/.holocore/atlas.html` is refreshed as an identical compatibility copy. AI clients consume `<project>/holocore-out/graph.json` directly. Existing `graphify-out` folders are migrated automatically when HoloCore next refreshes Atlas.
 
 The viewer uses a force-directed layout with collision spacing rather than placing everything in a circle. It shows only the most important labels until you search, hover, select a Signal, or enable **More labels**. Use **Fit**, zoom, drag-to-pan, and type/relation filters to inspect dense Worlds.
 

@@ -41,8 +41,8 @@ def test_sync_all_reconciles_two_registered_worlds(
     for world, config in zip(worlds, configs, strict=True):
         assert Path(config["archive"]).parent == isolated_holocore_home / "Archive" / "Worlds"
         assert config["shared_archive"] == str(isolated_holocore_home / "Archive" / "Shared")
-        assert (world / "graphify-out/graph.json").is_file()
-        assert (world / "graphify-out/graph.html").is_file()
+        assert (world / "holocore-out/graph.json").is_file()
+        assert (world / "holocore-out/graph.html").is_file()
         assert (world / ".holocore/atlas.json").is_file()
 
 

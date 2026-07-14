@@ -112,7 +112,8 @@ def test_complete_three_engine_keyless_release_path(keyless_release_env: tuple[P
     assert engine.router.animus.consolidate(world=engine.router.world_id, sector="project")["examined"] >= 1
     assert engine.router.animus.search("release decision", world=engine.router.world_id)
 
-    unified = engine.search("release decision")
+    engine.refresh()
+    unified = engine.search("ReleaseFeature release decision")
     assert any(item.source == "ARCHIVE" for item in unified)
     assert any(item.source == "ATLAS" for item in unified)
     assert any(item.source == "ANIMUS" for item in unified)

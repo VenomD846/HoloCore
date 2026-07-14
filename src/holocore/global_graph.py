@@ -21,7 +21,9 @@ def build_global_graph(home: str | Path, *, output: str | Path | None = None) ->
         if not isinstance(world, dict) or not isinstance(world.get("root"), str):
             continue
         world_id = str(world.get("id") or Path(world["root"]).name)
-        graph_path = Path(world["root"]) / "graphify-out" / "graph.json"
+        graph_path = Path(world["root"]) / "holocore-out" / "graph.json"
+        if not graph_path.is_file():
+            graph_path = Path(world["root"]) / "graphify-out" / "graph.json"
         if not graph_path.is_file():
             continue
         try:

@@ -77,13 +77,15 @@ class HoloCoreEngine:
             return {"refreshed": False, "html": str(html), "generated_html": generated_html, **freshness}
         return {"refreshed": True, **self.refresh()}
     def search(self, query: str, world: str | None = None) -> list[Result]:
+        key = (query, world)
+        if key in self._cache:
+            return self._cache[key]
         atlas_ready = False
         if not self._inbox_synced and self.router.config.home:
             atlas_ready = bool(self.sync_inbox().get("atlas"))
         if not atlas_ready:
             self.ensure_atlas()
-        key = (query, world)
-        if key not in self._cache: self._cache[key] = self.router.search(query, world)
+        self._cache[key] = self.router.search(query, world)
         return self._cache[key]
     def status(self) -> dict:
         required = tuple(
@@ -108,7 +110,7 @@ class HoloCoreEngine:
         self.router.ensure_memory_scope()
         root = (world or self.root).resolve(); added = deduplicated = 0
         for path in root.rglob("*"):
-            if not path.is_file() or any(part in {".git", ".holocore", ".venv", "__pycache__", "engines", "graphify-out"} for part in path.parts): continue
+            if not path.is_file() or any(part in {".git", ".holocore", ".venv", "__pycache__", "engines", "graphify-out", "holocore-out"} for part in path.parts): continue
             try: content = path.read_text(encoding="utf-8")
             except (UnicodeDecodeError, OSError): continue
             shard = self.router.animus.ingest(content, world=self.router.world_id, sector=sector, source_ref=str(path))
