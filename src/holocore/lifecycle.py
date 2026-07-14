@@ -81,6 +81,8 @@ def update_install(home: Path | None = None, *, repository: str = REPOSITORY) ->
         command = fallback
     if getattr(completed, "returncode", 0) != 0:
         detail = (completed.stderr or completed.stdout or "uv returned no diagnostic output").strip()
+        if "os error 32" in detail.lower() or "being used by another process" in detail.lower():
+            detail += " Close Claude Code, Codex, other MCP clients, and any running holocore processes, then run `uv tool upgrade holocore` from a fresh PowerShell window."
         raise RuntimeError(f"HoloCore update failed (exit {completed.returncode}): {detail}")
     return {
         "updated": True,

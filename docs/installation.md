@@ -163,11 +163,16 @@ The built-in upgrade path is:
 holocore update
 ```
 
-It uses `uv tool upgrade holocore`, which is safe while `holocore.exe` is running on Windows, and then runs all-World reconciliation. To reconcile without reinstalling:
+It uses `uv tool upgrade holocore`, which avoids the self-replacement problem from the older installer, and then runs all-World reconciliation. To reconcile without reinstalling:
 
 ```powershell
 holocore sync-all
 ```
+
+If Windows reports that `holocore.exe` is being used by another process, close
+Claude Code, Codex, other MCP clients, and any stuck HoloCore terminal process.
+Open a fresh PowerShell window and run `uv tool upgrade holocore`, then retry
+`holocore update`.
 
 Uninstall the tool with:
 
