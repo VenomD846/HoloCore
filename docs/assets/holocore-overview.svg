@@ -1,55 +1,78 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
-  <title id="title">HoloCore unified knowledge engine overview</title>
-  <desc id="desc">AI clients and users connect through one CLI and MCP engine to Archive, Atlas, and Animus, producing a wiki, project graph, and refined memory.</desc>
+  <title id="title">HoloCore version 0.5.0 shared Home and local World architecture</title>
+  <desc id="desc">People and AI clients use the HoloCore engine. One user-selected Home contains one Archive vault with per-World and Shared knowledge. Each active project keeps Atlas, Animus, raw chats, and capture state locally.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#07111f"/><stop offset="1" stop-color="#12233f"/></linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity=".28"/></filter>
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#7dd3fc"/></marker>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#07111f"/><stop offset="1" stop-color="#132945"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#000" flood-opacity=".28"/></filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#7dd3fc"/></marker>
     <style>
-      .sans{font-family:Inter,Segoe UI,Arial,sans-serif}.title{font-size:34px;font-weight:700;fill:#f8fafc}.sub{font-size:16px;fill:#b9c7dc}.label{font-size:20px;font-weight:700;fill:#f8fafc}.small{font-size:14px;fill:#d8e3f2}.tiny{font-size:12px;fill:#a9bad0}.line{stroke:#7dd3fc;stroke-width:3;fill:none;marker-end:url(#arrow)}
+      .f{font-family:Inter,Segoe UI,Arial,sans-serif}.title{font-size:32px;font-weight:700;fill:#f8fafc}.sub{font-size:15px;fill:#bdcbe0}.h{font-size:20px;font-weight:700;fill:#f8fafc}.p{font-size:14px;fill:#d7e2f1}.n{font-size:12px;fill:#9eb2ca}.line{stroke:#7dd3fc;stroke-width:3;fill:none;marker-end:url(#arrow)}.dash{stroke:#7dd3fc;stroke-width:2;stroke-dasharray:7 7;fill:none}
     </style>
   </defs>
   <rect width="1200" height="675" fill="url(#bg)"/>
-  <circle cx="1080" cy="80" r="180" fill="#2563eb" opacity=".09"/><circle cx="90" cy="610" r="210" fill="#14b8a6" opacity=".07"/>
-  <text x="60" y="62" class="sans title">HoloCore: one local knowledge engine</text>
-  <text x="60" y="92" class="sans sub">One request path. Three specialized knowledge systems. No runtime dependency on the original apps.</text>
+  <circle cx="1090" cy="65" r="190" fill="#2563eb" opacity=".08"/><circle cx="90" cy="620" r="210" fill="#14b8a6" opacity=".06"/>
+  <text x="60" y="58" class="f title">HoloCore 0.5.0: one shared Home, local World intelligence</text>
+  <text x="60" y="88" class="f sub">Durable knowledge lives in one Archive vault; structural maps, episodic memory, and raw chats stay with each project.</text>
 
   <g filter="url(#shadow)">
-    <rect x="60" y="150" width="220" height="154" rx="18" fill="#172b4d" stroke="#41658f"/>
-    <text x="170" y="188" text-anchor="middle" class="sans label">People + AI</text>
-    <text x="88" y="225" class="sans small">• Codex / Claude</text><text x="88" y="252" class="sans small">• Cursor / Gemini</text><text x="88" y="279" class="sans small">• OpenCode / terminal</text>
+    <rect x="55" y="135" width="230" height="150" rx="18" fill="#172b4d" stroke="#41658f"/>
+    <text x="170" y="176" text-anchor="middle" class="f h">People + AI clients</text>
+    <text x="85" y="211" class="f p">Claude • Codex • Cursor</text>
+    <text x="85" y="238" class="f p">Gemini • OpenCode • CLI</text>
+    <text x="85" y="263" class="f n">project commands, skills, MCP</text>
   </g>
-
-  <path d="M280 227 H390" class="line"/>
-
-  <g filter="url(#shadow)">
-    <rect x="400" y="135" width="400" height="185" rx="22" fill="#16345a" stroke="#38bdf8" stroke-width="2"/>
-    <text x="600" y="180" text-anchor="middle" class="sans label">HoloCore Engine</text>
-    <rect x="435" y="205" width="145" height="58" rx="12" fill="#0f2038" stroke="#5680ac"/><text x="507" y="230" text-anchor="middle" class="sans small">CLI + commands</text><text x="507" y="249" text-anchor="middle" class="sans tiny">human workflows</text>
-    <rect x="620" y="205" width="145" height="58" rx="12" fill="#0f2038" stroke="#5680ac"/><text x="692" y="230" text-anchor="middle" class="sans small">MCP tools</text><text x="692" y="249" text-anchor="middle" class="sans tiny">AI workflows</text>
-    <text x="600" y="294" text-anchor="middle" class="sans tiny">Shared engine • one-pass routing • explicit writes • local-first</text>
-  </g>
-
-  <path d="M600 320 V365" class="line"/>
-  <path d="M600 365 H225 V400" class="line"/><path d="M600 365 V400" class="line"/><path d="M600 365 H975 V400" class="line"/>
+  <path d="M285 210H365" class="line"/>
 
   <g filter="url(#shadow)">
-    <rect x="70" y="405" width="310" height="178" rx="18" fill="#113b39" stroke="#2dd4bf"/>
-    <text x="225" y="445" text-anchor="middle" class="sans label">Archive</text>
-    <text x="225" y="469" text-anchor="middle" class="sans tiny">durable explicit knowledge</text>
-    <text x="98" y="510" class="sans small">Markdown notes + wiki links</text><text x="98" y="538" class="sans small">Search, validation, backlinks</text><text x="98" y="566" class="sans small">Open directly in Obsidian</text>
+    <rect x="375" y="125" width="450" height="170" rx="22" fill="#16345a" stroke="#38bdf8" stroke-width="2"/>
+    <text x="600" y="165" text-anchor="middle" class="f h">HoloCore Engine</text>
+    <rect x="410" y="190" width="170" height="64" rx="12" fill="#0f2038" stroke="#5680ac"/>
+    <text x="495" y="216" text-anchor="middle" class="f p">CLI + lifecycle</text>
+    <text x="495" y="239" text-anchor="middle" class="f n">setup • update • sync-all</text>
+    <rect x="620" y="190" width="170" height="64" rx="12" fill="#0f2038" stroke="#5680ac"/>
+    <text x="705" y="216" text-anchor="middle" class="f p">MCP + hooks</text>
+    <text x="705" y="239" text-anchor="middle" class="f n">search • capture • promote</text>
+    <text x="600" y="279" text-anchor="middle" class="f n">check first • one-pass route • explicit Shared writes • local-first</text>
   </g>
+
+  <path d="M530 295V340H305V375" class="line"/>
+  <path d="M670 295V340H895V375" class="line"/>
+
   <g filter="url(#shadow)">
-    <rect x="445" y="405" width="310" height="178" rx="18" fill="#25325f" stroke="#818cf8"/>
-    <text x="600" y="445" text-anchor="middle" class="sans label">Atlas</text>
-    <text x="600" y="469" text-anchor="middle" class="sans tiny">structural project knowledge</text>
-    <text x="473" y="510" class="sans small">Nodes, edges, paths, impact</text><text x="473" y="538" class="sans small">Machine-readable graph JSON</text><text x="473" y="566" class="sans small">Searchable offline HTML</text>
+    <rect x="55" y="380" width="500" height="220" rx="20" fill="#113b39" stroke="#2dd4bf" stroke-width="2"/>
+    <text x="305" y="417" text-anchor="middle" class="f h">One user-selected HoloCore Home</text>
+    <text x="305" y="441" text-anchor="middle" class="f n">&lt;Home&gt;/Archive = one Obsidian-ready vault</text>
+    <rect x="85" y="466" width="275" height="105" rx="14" fill="#173f3c" stroke="#5eead4"/>
+    <text x="222" y="496" text-anchor="middle" class="f p">Worlds/&lt;world-id&gt;</text>
+    <text x="108" y="524" class="f n">verified project notes</text>
+    <text x="108" y="547" class="f n">automatic memory promotion</text>
+    <rect x="380" y="466" width="145" height="105" rx="14" fill="#173f3c" stroke="#5eead4"/>
+    <text x="452" y="496" text-anchor="middle" class="f p">Shared</text>
+    <text x="452" y="524" text-anchor="middle" class="f n">explicit</text>
+    <text x="452" y="547" text-anchor="middle" class="f n">cross-project notes</text>
+    <text x="305" y="588" text-anchor="middle" class="f n">worlds.json registers every project; search reads active World + Shared</text>
   </g>
+
   <g filter="url(#shadow)">
-    <rect x="820" y="405" width="310" height="178" rx="18" fill="#4a283e" stroke="#f472b6"/>
-    <text x="975" y="445" text-anchor="middle" class="sans label">Animus</text>
-    <text x="975" y="469" text-anchor="middle" class="sans tiny">episodic refined memory</text>
-    <text x="848" y="510" class="sans small">Raw-chat audit + provenance</text><text x="848" y="538" class="sans small">Summaries, facts, decisions</text><text x="848" y="566" class="sans small">Scoped SQLite recall</text>
+    <rect x="645" y="380" width="500" height="220" rx="20" fill="#252d58" stroke="#818cf8" stroke-width="2"/>
+    <text x="895" y="417" text-anchor="middle" class="f h">Active World: project-local intelligence</text>
+    <text x="895" y="441" text-anchor="middle" class="f n">&lt;project&gt; keeps public Atlas outputs and private runtime</text>
+    <rect x="675" y="466" width="135" height="105" rx="14" fill="#303866" stroke="#a5b4fc"/>
+    <text x="742" y="496" text-anchor="middle" class="f p">Atlas</text>
+    <text x="742" y="524" text-anchor="middle" class="f n">graphify-out</text>
+    <text x="742" y="547" text-anchor="middle" class="f n">graph.json + .html</text>
+    <rect x="827" y="466" width="135" height="105" rx="14" fill="#4a283e" stroke="#f472b6"/>
+    <text x="894" y="496" text-anchor="middle" class="f p">Animus</text>
+    <text x="894" y="524" text-anchor="middle" class="f n">episodic</text>
+    <text x="894" y="547" text-anchor="middle" class="f n">SQLite memory</text>
+    <rect x="979" y="466" width="135" height="105" rx="14" fill="#3c2e42" stroke="#f9a8d4"/>
+    <text x="1046" y="496" text-anchor="middle" class="f p">Capture</text>
+    <text x="1046" y="524" text-anchor="middle" class="f n">raw chats</text>
+    <text x="1046" y="547" text-anchor="middle" class="f n">cursor state</text>
+    <text x="895" y="588" text-anchor="middle" class="f n">.holocore/atlas.json remains an internal compatibility mirror</text>
   </g>
-  <text x="600" y="634" text-anchor="middle" class="sans sub">Archive tells what is known • Atlas shows how it connects • Animus remembers what happened</text>
+
+  <path d="M827 520H570" class="dash"/>
+  <text x="698" y="508" text-anchor="middle" class="f n">useful memory promotes to active World</text>
+  <text x="600" y="642" text-anchor="middle" class="f sub">Archive tells what is trusted • Atlas shows how the project connects • Animus remembers what happened</text>
 </svg>

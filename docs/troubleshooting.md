@@ -1,37 +1,141 @@
 # Troubleshooting
 
-## `ModuleNotFoundError: holocore`
-
-Reinstall the tool with `uv tool install holocore`. Until PyPI publication, use the repository Git URL. Editable installs and `PYTHONPATH` are development-only alternatives.
-
 ## `holocore` or `holocore-mcp` is not recognized
 
-Run `uv tool list` and confirm HoloCore is installed. Reinstall it with `uv tool install holocore` or the repository Git URL, then open a new terminal so the tool path is refreshed.
+Run `uv tool list` and confirm HoloCore is installed. Reinstall from Git, then open a new terminal:
 
-## MCP client cannot start the server
+```powershell
+uv tool install --force "git+https://github.com/VenomD846/HoloCore.git"
+```
 
-From the project, run `holocore doctor` and `holocore connect`. Then restart or reopen the client. Claude users should run `/mcp`; Codex users should inspect `.codex/config.toml` only if Doctor still reports a problem.
+## `ModuleNotFoundError: holocore`
+
+Reinstall the tool through `uv`. Editable installs and `PYTHONPATH` are development-only alternatives.
+
+## First setup chose the wrong Home
+
+Show the current selection:
+
+```powershell
+holocore home
+```
+
+Select another:
+
+```powershell
+holocore home <Home>
+```
+
+This changes the pointer only. It does not move the old Archive or registry. Run `holocore setup` in each project that should register with the new Home.
+
+## A project is missing from `holocore worlds`
+
+Run setup from that project:
+
+```powershell
+cd <project>
+holocore setup
+```
+
+If it belongs to another Home, pass `--home <Home>`.
+
+## `sync-all` reports `missing-world`
+
+The registry contains a project root that no longer exists at that path. Other Worlds continue to reconcile. Restore or move the project back, set up its new location as a World, or edit the registry only after backing it up and confirming the stale entry.
+
+## Claude cannot start or see HoloCore
+
+From the project:
+
+```powershell
+holocore connect --platform claude
+holocore doctor
+```
+
+Restart Claude, run `/mcp`, and approve or confirm the `holocore` project server. Setup cannot bypass Claude's approval step.
+
+## Codex reports invalid TOML or cannot see HoloCore
+
+Run:
+
+```powershell
+holocore connect --platform codex
+holocore doctor
+```
+
+HoloCore can replace a recognizable HoloCore MCP block when an older generated Windows path made it invalid TOML. It preserves unrelated Codex settings. Restart or reopen the project afterward.
+
+## Automatic capture is off
+
+Run:
+
+```powershell
+holocore connect
+holocore status
+```
+
+Then complete the client trust step:
+
+- Claude: `/mcp` for server approval; capture runs at `SessionEnd`.
+- Codex: `/hooks` to review and trust the HoloCore `Stop` hook.
+
+The expected files are `<project>/.claude/settings.json` and `<project>/.codex/hooks.json`. If either file contains invalid JSON, HoloCore skips it and reports a warning instead of overwriting it.
+
+## A session was not captured
+
+Automatic capture needs a supported hook payload and a readable transcript. Check:
+
+1. The hook is trusted and shown as on by `holocore status`.
+2. The client ended the session or turn through the expected hook event.
+3. `<project>/.holocore/raw-chats` is writable.
+4. The configured remote provider, if any, is reachable.
+
+Capture reads only new transcript bytes. If ingestion fails, the cursor is not advanced, so a later hook can retry.
 
 ## `status` reports Atlas missing or stale
 
-Change into the project, run `holocore atlas-refresh`, then rerun `holocore doctor`. Refresh is a write to HoloCore state.
+For an explicit refresh:
+
+```powershell
+holocore atlas-refresh
+```
+
+Normal `holocore search` checks and refreshes Atlas automatically before routing. `holocore sync-all` does the same for every registered World.
+
+## Search returns another scope than expected
+
+Archive search reads the active World and `Shared`. Results include an `archive_scope` label. It does not search other World folders.
+
+Archive creation targets the active World by default. Use a `shared/` path only when you intentionally want Shared.
 
 ## Animus reports an unknown World or Sector
 
-Use the initialized project root and one of the default sectors: `general`, `project`, or `conversations`. A separate root is a separate World.
+Run the command from an initialized World. Default Sectors are `general`, `project`, and `conversations`. Setup records the generated World ID in project configuration.
 
 ## Archive rejects a path or update
 
-Archive rejects traversal and protected directories and refuses unexpected overwrites. Use a relative path inside the Archive, avoid protected directories, and resolve conflicts explicitly.
+Archive rejects traversal, protected directories, invalid note shape, and unexpected overwrite conflicts. Use a relative Markdown path inside the active World, or a `shared/` prefix for Shared.
+
+## Legacy project Archive was not merged
+
+Setup copies Markdown from an older `<project>/Archive` into the active World's `Imported` folder. Identical files are skipped. Conflicting destination files are not overwritten. Review setup warnings and compare the two locations manually.
 
 ## `mine` captured too much
 
-`mine` currently scans eligible readable files recursively and stores whole-file content. Stop before running it on broad roots; choose a narrow directory and Sector. There is no CLI rollback command today.
+`mine` recursively stores eligible whole-file content. Choose a narrow directory before running it. There is no CLI rollback command.
 
-## Command does not appear in an AI client
+## `holocore update` fails
 
-Run `holocore setup` in the project, then restart or reload the AI client. Claude Code discovers `.mcp.json`, `/holocore-search`, and `/mcp__holocore__search`; Codex discovers `.codex/config.toml` and `.agents/skills`, including `$holocore-search`. Run `holocore connect` if the client was installed after setup.
+The built-in updater requires `uv` and network access to the Git repository. Reinstall manually with `uv tool install --force`, then run:
 
-## Original app is missing
+```powershell
+holocore sync-all
+```
 
-That is expected and should not affect HoloCore. If an error references an original app runtime, report it as a regression against the native-runtime boundary.
+## Obsidian shows only part of the knowledge
+
+Open `<Home>/Archive` as the vault root. Opening `Worlds/<world-id>` alone hides `Shared` and other World sections.
+
+## An original reference application is missing
+
+That is expected. HoloCore does not require the original Obsidian Second Brain, Graphify, or MemPalace runtimes. An error that tries to launch one of them is a HoloCore regression.

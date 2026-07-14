@@ -17,9 +17,9 @@ from typing import Any, Iterable, Mapping
 
 
 SKIP_DIRS = frozenset(
-    {".obsidian", ".git", ".trash", "_trash", ".claude", "_export", "templates", "node_modules"}
+    {".obsidian", ".git", ".trash", "_trash", ".claude", "_export", "templates", "node_modules", "raw"}
 )
-PROTECTED_WRITE_DIRS = SKIP_DIRS | {"raw"}
+PROTECTED_WRITE_DIRS = SKIP_DIRS
 REQUIRED_FRONTMATTER = ("type", "date", "tags", "ai-first")
 WIKILINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
 TOKEN_RE = re.compile(r"[\w-]+", re.UNICODE)
@@ -531,3 +531,64 @@ def backlinks(vault: str | os.PathLike[str], target: str, **bounds: Any) -> dict
 
 def vault_health(vault: str | os.PathLike[str], **bounds: Any) -> dict[str, Any]:
     return Archive(vault, **bounds).health()
+
+
+class ArchiveView:
+    """One World Archive plus the shared portion of a HoloCore Home vault."""
+
+    def __init__(self, world_vault: str | os.PathLike[str], shared_vault: str | os.PathLike[str] | None = None):
+        self.world = Archive(world_vault)
+        self.shared = Archive(shared_vault) if shared_vault else None
+        self.vault = self.world.vault
+
+    def init_vault(self) -> dict[str, Any]:
+        report = {"world": self.world.init_vault(), "initialized": True}
+        if self.shared:
+            report["shared"] = self.shared.init_vault()
+        report["vault"] = str(self.world.vault)
+        report["created"] = report["world"].get("created", [])
+        return report
+
+    init = init_vault
+
+    def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
+        hits = self.world.search(query, limit)
+        for hit in hits:
+            hit["archive_scope"] = "world"
+        if self.shared:
+            shared_hits = self.shared.search(query, limit)
+            for hit in shared_hits:
+                hit["archive_scope"] = "shared"
+                hit["path"] = "shared/" + hit["path"]
+                hit["source_ref"] = hit["path"]
+            hits.extend(shared_hits)
+        return hits[:limit]
+
+    def _target_archive(self, path: str | os.PathLike[str]) -> tuple[Archive, str]:
+        value = Path(path).as_posix()
+        if value.startswith("shared/"):
+            if not self.shared:
+                raise ArchiveError("shared Archive is not configured")
+            return self.shared, value.removeprefix("shared/")
+        return self.world, value
+
+    def read(self, path):
+        archive, relative = self._target_archive(path)
+        return archive.read(relative)
+
+    def create(self, path, body, **kwargs):
+        archive, relative = self._target_archive(path)
+        return archive.create(relative, body, **kwargs)
+
+    def update(self, path, **kwargs):
+        archive, relative = self._target_archive(path)
+        return archive.update(relative, **kwargs)
+
+    def health(self) -> dict[str, Any]:
+        world = self.world.health()
+        result = {"world": world, "healthy": world["healthy"]}
+        if self.shared:
+            result["shared"] = self.shared.health()
+            result["healthy"] = result["healthy"] and result["shared"]["healthy"]
+        result["vault"] = str(self.world.vault)
+        return result

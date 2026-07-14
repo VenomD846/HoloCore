@@ -1,175 +1,233 @@
 # HoloCore visual guide
 
-This page explains HoloCore in everyday language. You do not need to understand Python, databases, MCP, or knowledge graphs.
+This page explains HoloCore `0.5.0` in everyday language. You do not need to understand Python, databases, MCP, or knowledge graphs.
 
 ## HoloCore in one sentence
 
-HoloCore gives your AI assistant a **library for important knowledge**, a **map of your project**, and a **memory of previous work**—all through one local application.
+HoloCore gives every project a local map and memory while keeping verified knowledge in one shared, user-selected library.
 
 ## The whole system
 
-![AI clients and people connect through the HoloCore engine to Archive, Atlas, and Animus](assets/holocore-overview.svg)
+![One HoloCore Home contains a shared Archive vault while each World keeps local Atlas, Animus, and raw chats](assets/holocore-overview.svg)
 
-Think of HoloCore as an office with three specialist rooms:
+Think of the selected **HoloCore Home** as one building:
 
-| Part | Simple comparison | What it keeps | When it helps |
+- **Archive** is the building's library.
+- **Worlds** are project rooms in that library.
+- **Shared** is the shelf that every project may use.
+- **Atlas** is a blueprint kept at each project site.
+- **Animus** is a diary kept at each project site.
+- **HoloCore Engine** is the coordinator that knows where to look.
+
+| Part | Simple comparison | What it keeps | Where it lives |
 |---|---|---|---|
-| **Archive** | A carefully organised library | Verified notes, rules, decisions, instructions, and wiki links | “What is our agreed deployment process?” |
-| **Atlas** | A live map or blueprint | Files, functions, symbols, dependencies, and relationships | “What uses this function, and what could this change affect?” |
-| **Animus** | A project diary with useful highlights | Previous work, chats, errors, attempts, preferences, and events | “What happened the last time we fixed this problem?” |
-| **HoloCore Engine** | The receptionist and coordinator | One consistent set of commands and AI tools | Decides which specialist rooms are useful for the question |
+| **HoloCore Home** | One shared building | Archive vault and World registry | `<Home>` |
+| **World Archive** | One project's library room | Verified notes and promoted memory | `<Home>/Archive/Worlds/<world-id>` |
+| **Shared** | Common shelf | Explicit cross-project knowledge | `<Home>/Archive/Shared` |
+| **Atlas** | Project blueprint | Files, symbols, dependencies, paths, clusters, audits, exports | `<project>/graphify-out` |
+| **Animus** | Project diary | Previous work and refined conversations | `<project>/.holocore` |
+| **Raw chat audit** | Original evidence box | Source conversations before refinement | `<project>/.holocore/raw-chats` |
 
-The command line and supported AI clients use the same HoloCore Engine. This means Codex, Claude, Cursor, Gemini, OpenCode, and terminal users can work with the same local knowledge instead of maintaining separate copies.
+Archive is one Obsidian-ready vault, but HoloCore does not mix every project together during search. It reads the active World and `Shared`; other World sections stay out of scope.
 
-### What belongs where?
+## How installation works
 
-- Put a verified rule or long-term decision in **Archive**.
-- Let **Atlas** describe structure that can be rebuilt from the project files.
-- Put previous conversations, attempts, and work history in **Animus**.
-- Keep exact source code and documents in the project itself; HoloCore retrieves them only when needed.
+![Installation selects one Home, registers the World, installs local runtime and client hooks, then asks for client trust](assets/workflow-install-ai.svg)
 
-HoloCore does not copy everything into all three places. Each kind of information has one clear owner, which reduces duplication and confusion.
+### Step 1 — Install once
+
+Install HoloCore through `uv`. This provides the `holocore` command and local MCP server.
+
+### Step 2 — Choose one Home
+
+During first setup, choose `<Home>`. HoloCore remembers it for later projects.
+
+```powershell
+holocore setup --home <Home>
+```
+
+### Step 3 — Register a World
+
+The current project receives a generated World ID and an Archive section:
+
+`<Home>/Archive/Worlds/<world-id>`
+
+The Home registry records the project path. Durable Shared knowledge remains at `<Home>/Archive/Shared`.
+
+### Step 4 — Prepare local project state
+
+The project receives local Atlas, Animus, raw chats, capture cursor, start-here guide, commands, skills, and MCP configuration.
+
+### Step 5 — Approve access in the client
+
+Setup installs the files, but the client asks for trust:
+
+- Claude Code: restart, use `/mcp`, and approve or confirm HoloCore.
+- Codex: restart or reopen, use `/hooks`, and trust the HoloCore Stop hook.
+
+This keeps the user in control of local command and server execution.
 
 ## How unified search works
 
-![HoloCore checks readiness before following a one-way Atlas, Archive, optional Animus, and exact-source route](assets/workflow-unified-search.svg)
+![HoloCore checks readiness and freshness before Atlas, active World and Shared Archive, optional Animus, and exact sources](assets/workflow-unified-search.svg)
 
-### Step 1 — You ask one question
+### Step 1 — Ask one question
 
-You use `holocore search`, a slash command, or an MCP tool. For example: “Why did we choose SQLite, and which files use it?”
+For example:
 
-### Step 2 — HoloCore checks before searching
+> Why did we choose SQLite, and which files depend on it?
 
-HoloCore checks that its folders and configuration exist and checks whether Atlas is fresh. This is read-only. If Atlas is missing or stale, HoloCore reports that state rather than silently rebuilding it or trusting outdated structure.
+### Step 2 — Check first
 
-### Step 3 — Atlas narrows the project scope first
+HoloCore checks required World paths and Atlas freshness. Normal unified search refreshes the project-local Atlas when it is missing or stale.
 
-When Atlas is fresh, HoloCore searches the graph once to identify relevant files, functions, classes, paths, and relationships. These graph results become search hints for the next stage.
+### Step 3 — Atlas narrows the project
 
-### Step 4 — Archive checks the corresponding wiki knowledge
+Atlas runs once to find relevant files, functions, classes, and relationships.
 
-Archive is searched once using the original question plus the bounded Atlas hints. This finds durable rules and decisions associated with the identified project area instead of searching the wiki without context.
+### Step 4 — Archive adds trusted knowledge
 
-### Step 5 — Animus is consulted only when history matters
+Archive runs once using the original question plus bounded Atlas hints. It searches:
 
-Words such as “previous,” “again,” “earlier,” “error,” or “last time” activate one scoped Animus lookup. Questions that do not need prior work skip this stage.
+- the active World's durable notes;
+- `Shared` notes.
 
-### Step 6 — Only exact sources are opened
+It does not search every other World.
 
-HoloCore returns one source-labelled result set. The AI opens only the exact notes and project files identified by the checks, keeping the model context focused.
+### Step 5 — Animus runs only when history matters
 
-### Why the route cannot loop
+Questions containing ideas such as “previous,” “again,” “earlier,” “error,” or “last time” activate one project-local Animus lookup. Other questions skip it.
 
-The route is built once and moves in one direction. A context-local guard rejects any attempt for the same HoloCore search to call itself. Atlas, Archive, and Animus can each run at most once per request.
+### Step 6 — Open exact sources
 
-### Why this matters
+HoloCore returns labelled evidence. The AI opens only the exact notes and project files identified by the route.
 
-Searching everything for every question would be slower, produce more noise, and waste AI context. Atlas first narrows the scope; Archive adds trusted knowledge; Animus adds history only when needed. The final context contains relevant evidence instead of the whole repository and chat history.
+### Why it cannot loop
 
-![Without HoloCore the AI receives the whole project history; HoloCore Context Engine instead checks Atlas, reads matching Archive knowledge, optionally recalls Animus, and sends focused context](assets/holocore-context-engine-token-savings.png)
+The route is built once and moves in one direction. A context-local guard rejects the same HoloCore search calling itself. Atlas, Archive, and Animus each run at most once.
 
-## How a chat becomes useful memory
+![Without HoloCore the AI receives the whole project history; HoloCore checks Atlas, reads matching Archive knowledge, optionally recalls Animus, and sends focused context](assets/holocore-context-engine-token-savings.png)
 
-![A chat is audited, distilled in one extraction pass, deduplicated, and stored in Animus](assets/workflow-memory-refinement.svg)
+The hero image still shows the central retrieval idea: focused context instead of all files, chats, and notes.
 
-### Step 1 — A chat is supplied
+## How automatic conversation memory works
 
-`holocore ingest-chat` receives an exported conversation. This can contain questions, answers, decisions, mistakes, and ordinary discussion.
+![Claude SessionEnd and Codex Stop capture new transcript content, preserve raw evidence, refine local Animus memory, and promote useful knowledge](assets/workflow-memory-refinement.svg)
 
-### Step 2 — The original chat is preserved
+### Step 1 — A supported client reaches its hook
 
-HoloCore stores a separate raw audit copy. This is the evidence: it can be checked or processed again later. Raw chats may be sensitive, so `.holocore/raw-chats` should be protected.
+- Claude Code triggers `SessionEnd`.
+- Codex triggers `Stop`.
 
-### Step 3 — One refinement pass removes the noise
+Manual `ingest-chat` uses the same refinement path.
+
+### Step 2 — Read only new messages
+
+HoloCore remembers a byte cursor for each transcript. It reads only new user and assistant messages, ignores tool/system/analysis records, and removes adjacent duplicates.
+
+### Step 3 — Preserve raw evidence
+
+The original captured conversation is written under the active project. It can be audited or reprocessed later.
+
+### Step 4 — Refine once
 
 HoloCore uses either:
 
-- your configured OpenAI-compatible LLM, with your custom instructions; or
-- the keyless local fallback when no remote model is configured.
+- deterministic local extraction; or
+- one configured OpenAI-compatible provider call.
 
-The provider is called once to produce all memory categories. HoloCore does not make one call for the summary and additional calls for every fact or decision.
+One pass produces summary, facts, decisions, preferences, and entities.
 
-### Step 4 — The useful parts are separated
+### Step 5 — Store local Memory Shards
 
-The refinement result contains:
+Animus deduplicates the extraction, attaches provenance, and stores it in the active project database.
 
-- **Summary:** the short story of what the conversation was about.
-- **Facts:** reusable information learned during the conversation.
-- **Decisions:** choices that were actually made.
-- **Preferences:** how the user prefers work to be done.
-- **Entities:** important projects, people, tools, and systems mentioned.
+### Step 6 — Promote useful knowledge
 
-### Step 5 — Animus stores small, traceable memories
+Useful extraction automatically becomes a durable Markdown note in:
 
-Animus removes identical duplicates, records where each memory came from, and stores it in the correct World and Sector. Future AI sessions can recall the useful memory without loading the entire raw conversation.
+`<Home>/Archive/Worlds/<world-id>/wiki/memory`
 
-### What does not happen automatically?
+The name includes a date and content digest, so the same extraction is not repeatedly promoted.
 
-A chat memory does not automatically become a permanent Archive rule. Only verified, durable, reusable knowledge should be promoted into Archive. This prevents temporary guesses and failed debugging attempts from becoming official project guidance.
+### What stays explicit?
 
-## How installation connects another AI client
+Automatic promotion is project-scoped. Nothing is automatically published into `Shared`. A user or AI workflow must explicitly choose a `shared/` Archive path.
 
-![Installing HoloCore sets up a World and generates integrations for supported AI clients](assets/workflow-install-ai.svg)
+### What happens after a failure?
 
-### Step 1 — Install the package
+The capture cursor advances only after successful ingestion. A later hook can retry failed content. Hook errors are returned without blocking Claude or Codex from completing the session.
 
-Run `uv tool install holocore` once on the computer. Until PyPI publication, use the repository Git URL instead. This provides the `holocore` command and local `holocore-mcp` server. The original Obsidian Second Brain, Graphify, and MemPalace applications are not required.
+## How all Worlds stay current
 
-### Step 2 — Set up a project
+The selected Home remembers every registered World.
 
-Change into any project and run `holocore setup`. The current project becomes a HoloCore **World**. Setup is non-destructive: it adds or merges HoloCore client entries without replacing unrelated configuration.
+```powershell
+holocore sync-all
+```
 
-### Step 3 — HoloCore prepares the local World
+This visits each available project, repairs or regenerates HoloCore-owned integration files non-destructively, and ensures Atlas freshness.
 
-It creates the visible top-level `Archive` vault, `.holocore` runtime, `HOLOCORE-START-HERE.md`, client instructions, client-native commands, Codex skills, and MCP configuration. Gemini commands are TOML files under `.gemini/commands`; Codex skills live under `.agents/skills`. The knowledge remains inside the project unless the user deliberately moves or shares it.
+## How feature parity is checked
 
-### Step 4 — Reload the AI client
+![HoloCore parity release workflow checks Graphify, MemPalace, Archive, interfaces, imports, documentation, and tests](assets/workflow-parity-release.svg)
 
-Restart or reopen the project in Codex, Claude, Cursor, Gemini, or OpenCode. Claude reads `.mcp.json` and exposes `/holocore-search` and `/mcp__holocore__search`; use `/mcp` to check the connection. Codex reads `.codex/config.toml` and discovers `$holocore-search` under `.agents/skills` rather than as a slash command.
+HoloCore is considered feature-complete only when the parity gate verifies the
+three engine surfaces, their CLI/MCP interfaces, capture and import paths, export
+formats, documentation, and keyless release tests. Unsupported provider-dependent
+media remains explicitly reported rather than silently treated as complete.
 
-### Step 5 — Use the same experience everywhere
+```powershell
+holocore update
+```
 
-The user can search, remember, recall, map, and curate from any supported client. Every client reaches the same Archive, Atlas, Animus, and HoloCore Engine for that World.
-
-### Is Obsidian required?
-
-No. Atlas generates its own interactive HTML graph, which opens in a normal web browser. Obsidian is optional and provides a separate visual graph for the linked Markdown notes in Archive. AI clients use HoloCore's MCP tools and JSON data rather than either visual interface. See [prerequisites and graph viewing options](prerequisites.md).
+This updates the installed Git version through `uv`, then performs the same reconciliation. A missing project is reported without stopping the others.
 
 ## What happens during normal project work?
 
-1. **Orient:** run `holocore status` to check that required folders exist and Atlas, Archive, and Animus are ready.
-2. **Map first:** use a fresh Atlas to identify the relevant project area.
-3. **Retrieve:** search corresponding Archive notes and only relevant Animus history before reading large parts of the project.
-4. **Work:** inspect and change the exact files required for the task.
-5. **Refresh structure:** run `atlas-refresh` after meaningful source changes so Atlas matches the project.
-6. **Record history:** use `remember` or `ingest-chat` for useful project events and conversations.
-7. **Curate carefully:** add only verified long-term knowledge to Archive and update an existing note before creating a duplicate.
+1. **Orient:** run `holocore status`.
+2. **Map:** use fresh Atlas to identify the project area.
+3. **Retrieve:** search active World and Shared Archive knowledge.
+4. **Recall only when needed:** consult Animus for history.
+5. **Work:** open and change exact files.
+6. **Capture:** let Claude `SessionEnd` or Codex `Stop` preserve useful history.
+7. **Promote:** HoloCore writes useful extraction into the active World.
+8. **Share deliberately:** move or create only verified cross-project knowledge in `Shared`.
+9. **Reconcile:** use `sync-all` after client or generated-file changes.
 
-This keeps three different questions separate:
+## Example: a repeated login error
 
-- **What do we know and trust?** → Archive
-- **How is the project connected?** → Atlas
-- **What happened previously?** → Animus
+Suppose an AI assistant receives:
 
-## Example: fixing a repeated login problem
+> The login error is back. What did we do before, and which code could be affected?
 
-Suppose an AI assistant is asked: “The login error is back. What did we do before, and which code could be affected?”
+1. HoloCore checks World paths and Atlas freshness.
+2. Atlas identifies authentication files and dependencies.
+3. The active World Archive and Shared are searched for verified authentication rules.
+4. Animus runs because “is back” and “before” require prior history.
+5. The AI receives labelled evidence rather than every repository file and chat.
+6. Exact source files are opened and the fix is made.
+7. At session end, the conversation is captured, refined, remembered, and—if useful—promoted into the active World Archive.
 
-1. HoloCore checks required folders and Atlas freshness without changing anything.
-2. It searches **Atlas** first to identify authentication files, functions, and dependencies.
-3. It searches the corresponding **Archive** notes for the official authentication design or constraints.
-4. It checks **Animus** because “is back” and “before” indicate previous work is relevant.
-5. HoloCore returns source-labelled results instead of sending the entire repository and every old chat to the AI.
-6. The AI opens the exact source files identified by Atlas and verifies the implementation.
-7. After the fix, Atlas can be refreshed and the verified outcome can be remembered. A genuinely durable new rule may then be added to Archive.
+## Choose the right place
+
+| What you need | Put it here |
+|---|---|
+| A verified decision for one project | Active World Archive |
+| A verified rule intentionally shared across projects | Shared Archive |
+| Rebuildable file and dependency structure | Atlas |
+| Previous work, errors, attempts, and chats | Animus |
+| Original captured transcript | Raw chat audit |
+| A broad project answer | Unified search |
 
 ## Simple glossary
 
 | HoloCore term | Plain meaning |
 |---|---|
-| **Archive** | Verified knowledge |
-| **Atlas** | Structural map |
-| **Animus** | Remembered history |
+| **HoloCore Home** | User-selected root shared by registered projects |
+| **Archive** | One vault of verified knowledge |
+| **Atlas** | One project's structural map |
+| **Animus** | One project's remembered history |
 | **World** | Project |
 | **Sector** | Area inside a project |
 | **Memory Shard** | Raw remembered fragment |
@@ -178,13 +236,3 @@ Suppose an AI assistant is asked: “The login error is back. What did we do bef
 | **Constellation** | Group of related mapped things |
 | **CLI** | Commands typed in a terminal |
 | **MCP** | A standard way for an AI client to call HoloCore tools |
-
-## Choose the right workflow
-
-| What you need | What to use | What you receive |
-|---|---|---|
-| Save an agreed rule or durable decision | Archive | A readable Markdown note with links |
-| Understand files or code relationships | Atlas | Search results, dependency paths, impact information, JSON, or HTML graph |
-| Recall previous work or conversations | Animus | Small scoped memories with their original source |
-| Ask a broad project question | Unified search | One combined, source-labelled result set |
-| Connect an AI platform | Generated client integration or MCP | Access to the same local HoloCore World |

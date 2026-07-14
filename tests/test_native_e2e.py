@@ -7,12 +7,19 @@ from holocore.engine import HoloCoreEngine
 from holocore.mcp_server import PROMPTS, TOOLS, call, get_prompt
 
 
-def test_new_application_combines_wiki_graph_memory_git_and_ai_links(tmp_path: Path) -> None:
+def test_new_application_combines_wiki_graph_memory_git_and_ai_links(
+    tmp_path: Path, isolated_holocore_home: Path
+) -> None:
     world = tmp_path / "Demo World"
     engine = HoloCoreEngine(world)
 
     installed = engine.initialize(git=True)
     assert installed["git"] in {"created", "existing"}
+    assert installed["home"] == str(isolated_holocore_home)
+    assert installed["paths"]["archive"] == str(isolated_holocore_home / "Archive")
+    assert installed["paths"]["world_archive"].startswith(
+        str(isolated_holocore_home / "Archive" / "Worlds")
+    )
     for relative in ("AGENTS.md", "CLAUDE.md", "GEMINI.md", "HOLOCORE.md", ".cursor/mcp.json", "opencode.json"):
         assert (world / relative).exists()
 
@@ -31,7 +38,9 @@ def test_new_application_combines_wiki_graph_memory_git_and_ai_links(tmp_path: P
     second = engine.remember("Fixed the native installation workflow", "project", str(source))
     assert first["created"] is True
     assert second["deduplicated"] is True
-    assert engine.router.animus.search("installation", world=world.name, sector="project")
+    assert engine.router.animus.search(
+        "installation", world=engine.router.world_id, sector="project"
+    )
 
     names = {tool["name"] for tool in TOOLS}
     assert {"holocore_search", "holocore_archive_search", "holocore_atlas_search", "holocore_remember", "holocore_recall"} <= names

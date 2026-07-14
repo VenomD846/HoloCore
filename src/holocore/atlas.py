@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import subprocess
 import tempfile
 import tokenize
 from typing import Any, Iterable, Iterator, Mapping
@@ -394,6 +395,103 @@ class Atlas:
 
     affected_nodes = affected
 
+    def neighborhood(self, query: str, *, depth: int = 1, relations: Iterable[str] | None = None) -> dict[str, Any]:
+        """Return a deterministic local subgraph around a Signal."""
+        seed = self.resolve(query)
+        if seed is None or depth < 0:
+            return {"seed": None, "depth": depth, "nodes": [], "links": []}
+        graph = self.load_graph(); links = [dict(link) for link in graph.get("links", graph.get("edges", []))]
+        allowed = set(relations) if relations is not None else None; adjacency: dict[str, set[str]] = {}
+        for link in links:
+            if allowed is not None and link.get("relation") not in allowed: continue
+            a, b = str(link["source"]), str(link["target"]); adjacency.setdefault(a, set()).add(b); adjacency.setdefault(b, set()).add(a)
+        distances = {seed: 0}; queue: deque[str] = deque([seed])
+        while queue:
+            current = queue.popleft()
+            if distances[current] >= depth: continue
+            for neighbor in sorted(adjacency.get(current, ())):
+                if neighbor not in distances: distances[neighbor] = distances[current] + 1; queue.append(neighbor)
+        ids = set(distances); by_id = {str(node["id"]): node for node in graph.get("nodes", [])}
+        return {"seed": seed, "depth": depth, "nodes": [dict(by_id[node_id], distance=distances[node_id]) for node_id in sorted(ids) if node_id in by_id], "links": [link for link in links if str(link["source"]) in ids and str(link["target"]) in ids and (allowed is None or link.get("relation") in allowed)]}
+
+    def explain(self, query: str) -> dict[str, Any]:
+        """Explain resolution and structural evidence for a Signal query."""
+        graph = self.load_graph(); matches = self.search(query, limit=20); resolved = self.resolve(query)
+        node = next((dict(item) for item in graph.get("nodes", []) if str(item.get("id")) == resolved), None)
+        links = [dict(link) for link in graph.get("links", graph.get("edges", [])) if resolved and (str(link.get("source")) == resolved or str(link.get("target")) == resolved)]
+        return {"query": query, "resolved": resolved, "match_count": len(matches), "matches": matches, "signal": node, "relationships": sorted(links, key=lambda item: (str(item.get("relation", "")), str(item.get("source", "")), str(item.get("target", ""))))}
+
+    def constellations(self, *, min_size: int = 2) -> list[dict[str, Any]]:
+        """Return deterministic weakly-connected Signal communities."""
+        graph = self.load_graph()
+        by_id = {str(node["id"]): node for node in graph.get("nodes", [])}
+        neighbors: dict[str, set[str]] = {node_id: set() for node_id in by_id}
+        for link in graph.get("links", graph.get("edges", [])):
+            source, target = str(link.get("source")), str(link.get("target"))
+            if source in by_id and target in by_id:
+                neighbors[source].add(target); neighbors[target].add(source)
+        seen: set[str] = set(); communities: list[list[str]] = []
+        for seed in sorted(by_id):
+            if seed in seen:
+                continue
+            queue, component = deque([seed]), []
+            seen.add(seed)
+            while queue:
+                current = queue.popleft(); component.append(current)
+                for neighbor in sorted(neighbors[current]):
+                    if neighbor not in seen:
+                        seen.add(neighbor); queue.append(neighbor)
+            if len(component) >= max(1, int(min_size)):
+                communities.append(sorted(component))
+        communities.sort(key=lambda members: (-len(members), members[0]))
+        result = []
+        for members in communities:
+            digest = hashlib.sha256("\n".join(members).encode("utf-8")).hexdigest()[:16]
+            result.append({"id": f"constellation:{digest}", "label": str(by_id[members[0]].get("label", members[0])), "size": len(members), "signal_ids": members, "relations": sorted({str(link.get("relation", "")) for link in graph.get("links", []) if str(link.get("source")) in members and str(link.get("target")) in members}), "signals": [dict(by_id[node_id]) for node_id in members]})
+        return result
+
+    clusters = constellations
+
+    def audit(self) -> dict[str, Any]:
+        """Return deterministic quality findings without changing the graph."""
+        graph = self.load_graph(); nodes = graph.get("nodes", []); links = graph.get("links", graph.get("edges", [])); ids = {str(node.get("id")) for node in nodes}; degree = {node_id: 0 for node_id in ids}; counts: dict[tuple[str, str, str], int] = {}; unresolved = []
+        for link in links:
+            source, target, relation = str(link.get("source")), str(link.get("target")), str(link.get("relation", "")); counts[(source, target, relation)] = counts.get((source, target, relation), 0) + 1
+            if source not in ids or target not in ids: unresolved.append(dict(link))
+            else: degree[source] += 1; degree[target] += 1
+        duplicates = [{"source": a, "target": b, "relation": r, "count": n} for (a, b, r), n in sorted(counts.items()) if n > 1]
+        confidence = {value: sum(1 for node in nodes if node.get("confidence") == value) for value in ("EXTRACTED", "INFERRED", "AMBIGUOUS")}
+        return {"schema_version": 1, "source_digest": graph.get("graph", {}).get("source_digest", ""), "orphan_signals": [str(node["id"]) for node in nodes if degree.get(str(node["id"]), 0) == 0], "unresolved_relationships": unresolved, "duplicate_edges": duplicates, "confidence": confidence, "source_coverage": {"files": graph.get("graph", {}).get("stats", {}).get("files", 0), "signals": len(nodes), "relationships": len(links)}, "ok": not unresolved and not duplicates}
+
+    def write_report(self, output: str | os.PathLike[str] | None = None) -> Path:
+        """Write a concise, auditable Graphify-style Markdown report."""
+        graph = self.load_graph()
+        metadata = graph.get("graph", {})
+        stats = metadata.get("stats", {})
+        constellations = self.constellations()
+        target = Path(output) if output is not None else self.graph_path.parent / "GRAPH_REPORT.md"
+        lines = [
+            "# HoloCore Atlas Report",
+            "",
+            f"- Generated: {metadata.get('generated_at', 'unknown')}",
+            f"- Source root: `{metadata.get('source_root', self.root)}`",
+            f"- Files: {stats.get('files', 0)}",
+            f"- Signals: {stats.get('nodes', len(graph.get('nodes', [])))}",
+            f"- Relationships: {stats.get('links', len(graph.get('links', [])))}",
+            f"- Constellations: {len(constellations)}",
+            f"- Source digest: `{metadata.get('source_digest', '')}`",
+            "",
+            "## Constellations",
+            "",
+        ]
+        for item in constellations[:50]:
+            lines.append(f"- **{item['label']}** — {item['size']} Signals")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        payload = "\n".join(lines) + "\n"
+        if not target.exists() or target.read_text(encoding="utf-8") != payload:
+            target.write_text(payload, encoding="utf-8")
+        return target
+
     def _snapshot(self) -> dict[str, dict[str, Any]]:
         result: dict[str, dict[str, Any]] = {}
         if not self.root.is_dir():
@@ -411,6 +509,34 @@ class Atlas:
         return dict(sorted(result.items()))
 
     def _files(self) -> Iterator[Path]:
+        # In a Git World, use Git's own ignore engine so reference sources,
+        # generated output, local AI-client configuration, and other ignored
+        # material do not flood the user-facing Atlas. One Git call is both
+        # faster and more accurate than walking every ignored directory.
+        try:
+            listed = subprocess.run(
+                [
+                    "git", "-C", str(self.root), "ls-files", "--cached",
+                    "--others", "--exclude-standard", "-z",
+                ],
+                check=False,
+                capture_output=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError):
+            listed = None
+        if listed is not None and listed.returncode == 0:
+            for raw in sorted(filter(None, listed.stdout.split(b"\0"))):
+                try:
+                    relative = raw.decode("utf-8", errors="surrogateescape")
+                    path = self.root / PurePosixPath(relative)
+                except (UnicodeError, ValueError):
+                    continue
+                if any(part in self.exclude for part in PurePosixPath(relative).parts):
+                    continue
+                if path.is_file():
+                    yield path
+            return
         for directory, dirnames, filenames in os.walk(self.root):
             dirnames[:] = sorted(name for name in dirnames if name not in self.exclude)
             base = Path(directory)
@@ -422,10 +548,11 @@ class Atlas:
     def _extract(self, relative: str, digest: str) -> dict[str, Any]:
         path = self.root / PurePosixPath(relative)
         python = path.suffix.casefold() == ".py"
+        language = {".js": "javascript", ".jsx": "javascript", ".ts": "typescript", ".tsx": "typescript", ".json": "json", ".yaml": "yaml", ".yml": "yaml", ".sql": "sql", ".md": "markdown", ".markdown": "markdown"}.get(path.suffix.casefold(), "generic")
         file_node = {
             "id": _file_id(relative), "label": PurePosixPath(relative).name,
             "kind": "file", "type": "file", "file_type": "code" if python else "generic",
-            "language": "python" if python else "generic", "source_file": relative,
+            "language": "python" if python else language, "source_file": relative,
             "source_location": "L1", "content_hash": digest, "confidence": "EXTRACTED",
         }
         if python:
@@ -467,14 +594,33 @@ class Atlas:
         try:
             raw = path.read_bytes()
         except OSError:
-            return {"language": "generic", "module": "", "fragment": fragment}
+            return {"language": str(file_node.get("language", "generic")), "module": "", "fragment": fragment}
         if b"\0" in raw[:8192]:
             file_node["binary"] = True
-            return {"language": "generic", "module": "", "fragment": fragment}
+            return {"language": str(file_node.get("language", "generic")), "module": "", "fragment": fragment}
         text = raw.decode("utf-8", errors="replace")
+        language = str(file_node.get("language", "generic"))
+        # Lightweight language-aware extraction keeps Atlas useful without
+        # requiring a parser runtime for every ecosystem.
+        if path.suffix.casefold() in {".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".rs", ".cs", ".cpp", ".c"}:
+            patterns = [
+                (r"\b(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)", "function"),
+                (r"\bclass\s+([A-Za-z_$][\w$]*)", "class"),
+                (r"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=", "variable"),
+                (r"\b(?:def|fn|func)\s+([A-Za-z_$][\w$]*)", "function"),
+            ]
+            for pattern, kind in patterns:
+                for match in re.finditer(pattern, text):
+                    line = text.count("\n", 0, match.start()) + 1
+                    name = match.group(1)
+                    node_id = f"symbol:{_key(relative)}:{_key(name)}:{line}"
+                    fragment["nodes"].append({"id": node_id, "label": name, "qualified_name": name, "kind": kind, "type": kind, "file_type": "code", "language": language, "source_file": relative, "source_location": f"L{line}", "content_hash": digest, "confidence": "EXTRACTED"})
+                    fragment["edges"].append(_edge(file_node["id"], node_id, "contains", relative, line))
+            for match in re.finditer(r"(?:import|require\s*\(|from)\s*[\"']([^\"']+)", text):
+                fragment["references"].append({"source": file_node["id"], "target": match.group(1), "relation": "imports", "line": text.count("\n", 0, match.start()) + 1})
         if path.suffix.casefold() not in {".md", ".markdown"}:
             file_node["line_count"] = text.count("\n") + (1 if text else 0)
-            return {"language": "generic", "module": "", "fragment": fragment}
+            return {"language": language, "module": "", "fragment": fragment}
         file_node["language"] = "markdown"
         occurrences: dict[str, int] = {}
         for line_number, line in enumerate(text.splitlines(), 1):

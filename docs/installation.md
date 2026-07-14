@@ -1,102 +1,171 @@
 # Installation guide
 
-![HoloCore installation connects one local World to supported AI clients](assets/workflow-install-ai.svg)
+![HoloCore installation selects one shared Home, registers a World, and connects AI clients](assets/workflow-install-ai.svg)
 
-HoloCore installs once as a command-line tool. Each project then gets its own visible Archive, generated runtime, and AI-client connections.
+HoloCore installs once as a command-line tool. During first setup, you choose one shared **HoloCore Home**. Every project then registers as a **World** in that Home while keeping its generated Atlas, Animus, and raw chats local.
 
 ## 1. Install HoloCore
 
-Install [`uv`](https://docs.astral.sh/uv/) if it is not already available, then install HoloCore:
+Install [`uv`](https://docs.astral.sh/uv/) if it is not already available, then install HoloCore from Git:
 
 ```powershell
 uv tool install "git+https://github.com/VenomD846/HoloCore.git"
 ```
 
-After HoloCore is published on PyPI, the shorter equivalent will be:
+The installation provides `holocore` and the local `holocore-mcp` server. Obsidian, an external graph tool, an external memory application, and an LLM API key are not required.
+
+## 2. Choose the shared Home and set up the first World
+
+Use a path you control and can keep backed up:
 
 ```powershell
-uv tool install holocore
+cd <project>
+holocore setup --home <Home>
 ```
 
-The installation provides both `holocore` and the local `holocore-mcp` server. Python environments, editable installs, Obsidian, external memory tools, and LLM API keys are not part of normal onboarding.
-
-## 2. Set up any project
-
-Change into an existing or new project and run setup:
+If you omit `--home` in an interactive terminal, first setup asks where the shared second brain should live. You can also select it before setup:
 
 ```powershell
-cd C:\path\to\project
+holocore home <Home>
 holocore setup
 ```
 
-The current directory becomes the HoloCore World. Setup is non-destructive: it creates missing files and adds or merges HoloCore client configuration without replacing unrelated settings.
+The selected location is remembered by a small user-level pointer. Later projects reuse it automatically:
 
-## What setup creates
+```powershell
+cd <another-project>
+holocore setup
+```
+
+Use `holocore home` to show the selection and `holocore worlds` to list registered projects.
+
+## 3. Understand the created layout
+
+The Home contains one visible Archive vault:
+
+```text
+<Home>/
+├── Archive/
+│   ├── system/
+│   │   └── index.md
+│   ├── Shared/
+│   │   └── wiki/                  Knowledge shared intentionally
+│   └── Worlds/
+│       └── <world-id>/
+│           ├── Inbox/
+│           ├── wiki/              Durable project knowledge
+│           └── system/index.md
+└── worlds.json                    Registered project paths and IDs
+```
+
+Each World keeps its runtime in the project:
 
 ```text
 <project>/
-├── Archive/
-│   ├── Inbox/                 Temporary knowledge awaiting curation
-│   ├── wiki/                  Verified, durable Archive Entries
-│   └── system/
-│       └── index.md           Starting index for the Archive
 ├── .holocore/
-│   ├── atlas.json             Machine-readable structural Atlas
-│   ├── atlas.html             Interactive Atlas for a web browser
-│   ├── animus.db              SQLite store for episodic Memory Shards
-│   └── raw-chats/             Original chat audits used for refinement
-└── HOLOCORE-START-HERE.md      Short project-specific entry point
+│   ├── config.json
+│   ├── atlas.json
+│   ├── atlas.html
+│   ├── animus.db
+│   ├── capture-state.json
+│   └── raw-chats/
+├── HOLOCORE-START-HERE.md
+├── .claude/settings.json          Claude SessionEnd capture hook
+└── .codex/hooks.json              Codex Stop capture hook
 ```
 
-Setup also creates client-native command definitions and `$`-invoked Codex skills, then registers the HoloCore MCP server for Claude Code, Codex, Gemini, Cursor, and OpenCode. Existing configuration is preserved.
+Setup also merges MCP configuration, generated commands, client instructions, and Codex project skills. Unrelated settings are preserved. Existing invalid configuration is skipped or repaired only when HoloCore can safely identify its own section.
 
-## 3. Reopen your AI client
+If the project has an older top-level `Archive`, setup copies Markdown into `<Home>/Archive/Worlds/<world-id>/Imported`. Identical files are skipped and conflicting files are left untouched.
 
-Client configuration is discovered at startup. Restart the client or reopen the project after setup.
+## 4. Approve the client connections
+
+AI clients discover project integrations when they start, so restart or reopen the project after setup.
 
 ### Claude Code
 
-- MCP configuration: `<project>/.mcp.json`
-- Check the connection: `/mcp`
-- Slash command: `/holocore-search`
-- Generated MCP prompt: `/mcp__holocore__search`
+1. Restart Claude Code in the World.
+2. Run `/mcp`.
+3. Approve or confirm the project-local `holocore` server.
+4. Use `/holocore-search` or `/mcp__holocore__search`.
 
-Restart Claude after `holocore setup`, run `/mcp`, and confirm that `holocore` is connected before searching.
+Claude's automatic conversation capture runs at `SessionEnd`. The hook is installed in `<project>/.claude/settings.json`.
 
 ### Codex
 
-- MCP configuration: `<project>/.codex/config.toml`
-- Project skills: `<project>/.agents/skills`
-- Search skill: `$holocore-search`
+1. Restart Codex or reopen the World.
+2. Run `/hooks`.
+3. Review and trust the HoloCore `Stop` hook.
+4. Invoke `$holocore-search`.
 
-Restart Codex or reopen the project after setup so the MCP server and project skills are discovered.
+Codex uses `$`-invoked skills under `<project>/.agents/skills`; it does not use HoloCore slash commands. The capture hook is installed in `<project>/.codex/hooks.json`.
 
-Gemini receives project-local TOML command definitions under `<project>/.gemini/commands`. Cursor and OpenCode receive their native project command formats. Codex uses `$`-invoked skills under `.agents/skills`, not slash commands. Run `holocore connect` if a client was installed after the initial setup or if its connection needs to be repaired.
+### Other clients
 
-## Optional: open Archive in Obsidian
+Gemini receives project-local TOML commands. Cursor and OpenCode receive their native project command and MCP formats. Use `holocore connect` if a client was installed after setup.
 
-Obsidian is not required. Archive is ordinary Markdown and HoloCore works without the Obsidian application.
+## 5. Verify the result
 
-To browse it as an Obsidian vault:
+```powershell
+holocore status
+holocore paths
+holocore doctor
+holocore worlds
+```
 
-1. In Obsidian, choose **Open folder as vault**.
-2. Select `<project>/Archive`.
+`status` reports Home/World paths, Atlas freshness, Animus, client connection state, and whether Claude/Codex capture is installed.
 
-Use the separate `.holocore/atlas.html` file when you want HoloCore's structural code and file graph.
+## Optional: open the Archive in Obsidian
 
-## Useful setup commands
+Obsidian is not required. To use it:
+
+1. Choose **Open folder as vault**.
+2. Select `<Home>/Archive`.
+
+Open only this one Archive root. Do not open an individual World as a separate vault unless you intentionally want an incomplete view.
+
+Atlas has a separate self-contained HTML graph:
+
+```powershell
+holocore atlas-view
+```
+
+## Useful setup and lifecycle commands
 
 | Command | Purpose |
 |---|---|
-| `holocore paths` | Show the active project and every HoloCore data/configuration path |
-| `holocore connect` | Add or repair supported AI-client integrations non-destructively |
-| `holocore doctor` | Check files, runtime state, commands, and client connections |
-| `holocore open-archive` | Open the top-level Archive with the configured/default application |
+| `holocore home` | Show the selected Home |
+| `holocore home <Home>` | Select and initialize another Home |
+| `holocore setup [--home <Home>]` | Register the current World, connect clients, and build Atlas |
+| `holocore connect` | Add or repair project client integration |
+| `holocore paths` | Print all resolved Home, Archive, World, runtime, and integration paths |
+| `holocore worlds` | List every World in the selected Home |
+| `holocore sync-all` | Reconcile integrations and Atlas across all registered Worlds |
+| `holocore update` | Update HoloCore from Git, then reconcile all Worlds |
+| `holocore open-archive` | Open `<Home>/Archive` |
 
-Run these commands from the project directory. Advanced users can still select another World with `--root <path>`.
+Use `--platform` repeatedly with `setup` or `connect` to configure only selected clients.
 
 ## Upgrade or uninstall
 
-Upgrade a PyPI installation with `uv tool upgrade holocore`. For a Git installation, rerun `uv tool install --force "git+https://github.com/VenomD846/HoloCore.git"`. Uninstall with `uv tool uninstall holocore`.
+The built-in upgrade path is:
 
-Removing the tool does not delete project-owned `Archive`, `.holocore`, client integrations, or `HOLOCORE-START-HERE.md` files.
+```powershell
+holocore update
+```
+
+It uses `uv` to reinstall HoloCore from the project Git repository and then runs all-World reconciliation. To reconcile without reinstalling:
+
+```powershell
+holocore sync-all
+```
+
+Uninstall the tool with:
+
+```powershell
+uv tool uninstall holocore
+```
+
+Uninstalling the tool does not delete `<Home>/Archive`, `<Home>/worlds.json`, project-local `.holocore` state, or generated project integrations.
+
+Changing Home with `holocore home <Home>` selects a different registry and vault; it does not move data from the previous Home. Run setup in each project you want to register with the new Home.

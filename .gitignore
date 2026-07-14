@@ -54,3 +54,7 @@ Thumbs.db
 desktop.ini
 *.swp
 *.tmp
+
+# HoloCore private conversation data
+.holocore/raw-chats/
+.holocore/animus.db*

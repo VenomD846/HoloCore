@@ -1,25 +1,71 @@
 # MCP reference
 
-`holocore-mcp` is a local stdio MCP server. `holocore setup` registers it non-destructively for Claude Code, Codex, Gemini, Cursor, and OpenCode with the project directory as the active World.
+`holocore-mcp` is a local stdio server. Each project connection uses that project as the active World while resolving durable knowledge through the selected shared HoloCore Home.
 
-Claude stores the project connection in `.mcp.json`. After restarting Claude, run `/mcp` to verify it, then invoke the generated prompt `/mcp__holocore__search` or slash command `/holocore-search`.
+Setup writes the exact Python executable, `-m holocore.mcp_server`, and the project working directory into client configuration. No inherited terminal `PATH` is required.
 
-Codex stores the connection in `.codex/config.toml` and project skills in `.agents/skills`. Restart Codex or reopen the project, then invoke `$holocore-search`.
+## Client approval
+
+- Claude stores the project server in `<project>/.mcp.json`. Restart Claude, run `/mcp`, and approve or confirm `holocore`.
+- Codex stores the equivalent server in `<project>/.codex/config.toml`. Restart or reopen the project. MCP access and Codex project skills are separate from the capture hook; review the hook through `/hooks`.
+
+## Tools
 
 | Tool | Required inputs | Effect |
 |---|---|---|
-| `holocore_search` | `query`; optional `world` | Read; check-first Atlas → Archive → optional Animus search with recursive-route protection |
-| `holocore_status` | None | Read; required-folder readiness plus World, Archive, Atlas, and Animus status |
-| `holocore_archive_search` | `query` | Read; curated Markdown search |
-| `holocore_archive_read` | `path` | Read; bounded note read |
-| `holocore_archive_create` | `path`, `title`, `content` | Write; creates an AI-first Archive note and rejects unsafe/conflicting paths |
-| `holocore_atlas_refresh` | None | Write; refreshes native Atlas JSON |
-| `holocore_atlas_search` | `query` | Read; searches structural signals |
-| `holocore_atlas_html` | None | Write; generates a self-contained local HTML viewer |
-| `holocore_remember` | `content`; optional `sector`, `source` | Write; stores or deduplicates one scoped Memory Shard |
-| `holocore_recall` | `query`; optional `sector` | Read; recalls scoped episodic memory |
-| `holocore_ingest_chat` | `messages`; optional `sector`, `instructions` | Write; audits raw chat and stores distilled summary/facts |
+| `holocore_search` | `query`; optional `world` | Read plus generated-state refresh; check-first Atlas → active World Archive + Shared → optional Animus |
+| `holocore_status` | None | Read; Home/World paths, readiness, Atlas freshness, Animus, and client/capture status |
+| `holocore_archive_search` | `query` | Read; searches the active World and Shared |
+| `holocore_archive_read` | `path` | Read; active World by default, `shared/` prefix for Shared |
+| `holocore_archive_create` | `path`, `title`, `content` | Write; creates a validated AI-first World or Shared note |
+| `holocore_atlas_refresh` | None | Write; refreshes project-local Atlas JSON |
+| `holocore_atlas_search` | `query` | Read; searches project-local structural Signals |
+| `holocore_atlas_explain` | `query` | Read; explains a Signal, evidence, and relationships |
+| `holocore_atlas_path` | `source`, `target`; optional `max_depth` | Read; finds a shortest relationship path |
+| `holocore_atlas_affected` | `query`; optional `depth` | Read; finds affected Signals |
+| `holocore_atlas_neighborhood` | `query`; optional `depth` | Read; inspects a bounded local neighborhood |
+| `holocore_atlas_audit` | None | Read; reports unresolved, duplicate, orphan, confidence, and coverage issues |
+| `holocore_atlas_constellations` | optional `min_size` | Read; lists deterministic Atlas communities |
+| `holocore_atlas_html` | None | Write; generates project-local self-contained HTML and returns its path |
+| `holocore_atlas_export` | `output`; optional `formats` | Write; exports Atlas JSON, HTML, Markdown, and a manifest |
+| `holocore_animus_mine` | `mode`; optional `path`, `sector` | Write; mines one explicitly scoped World using files, conversations, or Git |
+| `holocore_animus_checkpoint` | `mode`, `source`; optional `sector` | Read; reads the last mining checkpoint |
+| `holocore_animus_diary` | `content`; optional `title`, `sector` | Write; records one episodic diary entry |
+| `holocore_animus_timeline` | optional `sector`, `limit` | Read; returns the scoped diary timeline |
+| `holocore_animus_consolidate` | optional `sector` | Write; consolidates duplicate episodic entries |
+| `holocore_animus_export` | optional `sector`, `limit` | Read; exports scoped Animus records |
+| `holocore_remember` | `content`; optional `sector`, `source` | Write; stores or deduplicates one project-local Memory Shard |
+| `holocore_recall` | `query`; optional `sector` | Read; recalls project-local episodic memory |
+| `holocore_ingest_chat` | `messages`; optional `sector`, `instructions` | Write; audits raw chat, stores shards, and promotes useful extraction |
+| `holocore_home` | None | Read; returns the selected Home, Archive, and registry |
+| `holocore_worlds` | None | Read; lists registered Worlds |
+| `holocore_global_graph` | optional `output` | Write; builds an Atlas-only graph across registered Worlds |
+| `holocore_setup` | `home` | Write; registers the current World and connects supported clients |
+| `holocore_sync_all` | None | Write; reconciles every registered World and ensures Atlas freshness |
 
-Tool results are returned as JSON encoded in one MCP text-content item. Errors use JSON-RPC code `-32000` with the exception message.
+The `holocore_setup` tool requires a user-chosen `home` input. The generated setup prompt tells the AI client to ask the user where the shared Home should live before running the write.
 
-Generated MCP prompts expose the same workflows using the client's MCP prompt syntax. The server has no authentication layer because it is a local stdio process. The launching client's `cwd` determines the active World.
+## Archive scope
+
+The MCP server creates an `ArchiveView` with two roots:
+
+- default paths resolve inside `<Home>/Archive/Worlds/<world-id>`;
+- paths beginning with `shared/` resolve inside `<Home>/Archive/Shared`.
+
+Search reads both roots and labels each hit with `world` or `shared` scope. It does not search another World's private Archive section.
+
+## Automatic capture is not an MCP tool
+
+Claude `SessionEnd` and Codex `Stop` capture are project hooks that call the local HoloCore runtime. They use the same memory-refinement and Archive-promotion path as `holocore_ingest_chat`, but they do not require an MCP request at session end.
+
+The files are installed by `setup` or `connect`; users still approve the MCP server through Claude `/mcp` and trust the Codex hook through `/hooks`.
+
+## Protocol behavior
+
+- Protocol version: `2025-06-18`
+- Transport: local standard input/output
+- Result shape: JSON encoded in one MCP text-content item
+- Error shape: JSON-RPC code `-32000` with the exception message
+- Server version: `0.5.0`
+
+The server has no network authentication layer because it is launched as a local child process. The AI client, project configuration, operating-system permissions, and explicit client approval are the trust boundary.

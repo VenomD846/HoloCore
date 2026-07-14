@@ -10,6 +10,8 @@ from pathlib import Path
 
 from .archive import Archive
 from .commands import render_all_commands
+from .config import Config
+from .home import HomeManager
 from .layout import render_start_here, world_paths
 from .policy import render_policy
 
@@ -22,6 +24,8 @@ class BootstrapReport:
     git: str
     updated: list[Path] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    home: Path | None = None
+    world_id: str | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -30,12 +34,14 @@ class BootstrapReport:
             "updated": [str(p) for p in self.updated],
             "skipped": [str(p) for p in self.skipped],
             "git": self.git,
-            "paths": world_paths(self.root),
+            "home": str(self.home) if self.home else None,
+            "world_id": self.world_id,
+            "paths": world_paths(self.root, Config.load(root=self.root)),
             "next_steps": [
                 "Restart or reopen your AI client in this World.",
                 "Claude Code: run /mcp once to approve HoloCore, then /holocore-search.",
                 "Codex: invoke $holocore-search (project skills are in .agents/skills).",
-                "Obsidian: open the top-level Archive folder as a vault (optional).",
+                "Obsidian: open the shared HoloCore Home Archive as one vault (optional).",
             ],
             "warnings": self.warnings,
         }
@@ -155,7 +161,50 @@ def _protect_private_state(root: Path, created: list[Path], updated: list[Path],
         updated.append(target)
 
 
-def bootstrap_project(project: Path, *, init_git: bool = True, platforms: list[str] | None = None) -> BootstrapReport:
+def _merge_capture_hook(target: Path, event: str, client: str, created: list[Path], updated: list[Path], skipped: list[Path], warnings: list[str]) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    existed = target.exists()
+    data: dict = {}
+    if existed:
+        try:
+            data = json.loads(target.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            skipped.append(target)
+            warnings.append(f"Could not install automatic {client} capture hook in invalid JSON {target}: {exc}")
+            return
+        if not isinstance(data, dict):
+            skipped.append(target)
+            warnings.append(f"Could not install automatic {client} capture hook because {target} is not a JSON object")
+            return
+    command = f'"{Path(sys.executable).resolve()}" -m holocore.capture_hook --client {client}'
+    handler = {"type": "command", "command": command, "timeout": 60, "statusMessage": "Saving conversation to HoloCore"}
+    if client == "codex":
+        handler["commandWindows"] = command
+    hooks = data.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        skipped.append(target)
+        warnings.append(f"Could not install automatic {client} capture hook because 'hooks' in {target} is not an object")
+        return
+    groups = hooks.setdefault(event, [])
+    if not isinstance(groups, list):
+        skipped.append(target)
+        warnings.append(f"Could not install automatic {client} capture hook because hooks.{event} in {target} is not a list")
+        return
+    if any("holocore.capture_hook" in json.dumps(group) for group in groups):
+        skipped.append(target)
+        return
+    groups.append({"hooks": [handler]})
+    target.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    (updated if existed else created).append(target)
+
+
+def bootstrap_project(
+    project: Path,
+    *,
+    init_git: bool = True,
+    platforms: list[str] | None = None,
+    home: Path | None = None,
+) -> BootstrapReport:
     root = project.resolve()
     root.mkdir(parents=True, exist_ok=True)
     created: list[Path] = []
@@ -163,6 +212,12 @@ def bootstrap_project(project: Path, *, init_git: bool = True, platforms: list[s
     skipped: list[Path] = []
     warnings: list[str] = []
     selected = set(["codex", "claude", "gemini", "cursor", "opencode", "generic"] if platforms is None else platforms)
+    home_manager = HomeManager(home)
+    registration = home_manager.register_world(root, import_archive=True)
+    world_id = str(registration["world"]["id"])
+    world_archive = home_manager.archive / "Worlds" / world_id
+    shared_archive = home_manager.archive / "Shared"
+    Archive(world_archive).init_vault()
     server = _mcp_server(root)
     mcp = {"mcpServers": {"holocore": server}}
     instructions = render_policy()
@@ -172,26 +227,34 @@ def bootstrap_project(project: Path, *, init_git: bool = True, platforms: list[s
         ".holocore/policy.md": instructions,
         ".holocore/mcp.json": json.dumps(mcp, indent=2),
         "HOLOCORE.md": instructions,
-        "HOLOCORE-START-HERE.md": render_start_here(root),
     }
     for relative, content in generated.items():
         _write_generated(root / relative, content, created, updated, skipped)
 
     config_patch = {
-        "version": 1,
+        "version": 2,
         "world": root.name,
+        "world_id": world_id,
         "root": str(root),
-        "archive": str(root / "Archive"),
+        "home": str(home_manager.home),
+        "archive": str(world_archive),
+        "shared_archive": str(shared_archive),
         "state_dir": str(root / ".holocore"),
+        "animus": str(root / ".holocore" / "animus.db"),
+        "raw_chats": str(root / ".holocore" / "raw-chats"),
     }
     _merge_json(root / ".holocore/config.json", config_patch, created, updated, skipped, warnings)
+    config = Config.load(root=root)
+    _write_generated(root / "HOLOCORE-START-HERE.md", render_start_here(root, config), created, updated, skipped)
 
     if "codex" in selected:
         _merge_instructions(root / "AGENTS.md", instructions, created, updated, skipped)
         _merge_codex_toml(root / ".codex/config.toml", server, created, updated, skipped)
+        _merge_capture_hook(root / ".codex/hooks.json", "Stop", "codex", created, updated, skipped, warnings)
     if "claude" in selected:
         _merge_instructions(root / "CLAUDE.md", instructions, created, updated, skipped)
         _merge_json(root / ".mcp.json", mcp, created, updated, skipped, warnings)
+        _merge_capture_hook(root / ".claude/settings.json", "SessionEnd", "claude", created, updated, skipped, warnings)
     if "gemini" in selected:
         _merge_instructions(root / "GEMINI.md", instructions, created, updated, skipped)
         _merge_json(root / ".gemini/settings.json", mcp, created, updated, skipped, warnings)
@@ -212,12 +275,6 @@ def bootstrap_project(project: Path, *, init_git: bool = True, platforms: list[s
 
     _protect_private_state(root, created, updated, skipped)
 
-    archive = root / "Archive"
-    archive_existed = archive.exists()
-    archive_report = Archive(archive).init_vault()
-    if not archive_existed:
-        created.append(archive)
-    created.extend(archive / relative for relative in archive_report["created"])
     raw_chats = root / ".holocore" / "raw-chats"
     if not raw_chats.exists():
         raw_chats.mkdir(parents=True)
@@ -232,8 +289,14 @@ def bootstrap_project(project: Path, *, init_git: bool = True, platforms: list[s
             git = "unavailable"
     elif (root / ".git").exists():
         git = "existing"
-    return BootstrapReport(root, created, skipped, git, updated, warnings)
+    return BootstrapReport(root, created, skipped, git, updated, warnings, home_manager.home, world_id)
 
 
-def bootstrap(project: Path, *, init_git: bool = True, platforms: list[str] | None = None) -> dict:
-    return bootstrap_project(project, init_git=init_git, platforms=platforms).as_dict()
+def bootstrap(
+    project: Path,
+    *,
+    init_git: bool = True,
+    platforms: list[str] | None = None,
+    home: Path | None = None,
+) -> dict:
+    return bootstrap_project(project, init_git=init_git, platforms=platforms, home=home).as_dict()

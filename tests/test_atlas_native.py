@@ -1,5 +1,9 @@
 import json
 from pathlib import Path
+import shutil
+import subprocess
+
+import pytest
 
 from holocore.atlas import Atlas, content_hash
 
@@ -62,3 +66,19 @@ def test_syntax_error_keeps_file_signal(tmp_path):
     graph = Atlas(tmp_path).refresh()
     node = next(n for n in graph["nodes"] if n["label"] == "broken.py")
     assert "parse_error" in node
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="Git is not installed")
+def test_git_world_does_not_map_ignored_reference_sources(tmp_path):
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / ".gitignore").write_text("reference-apps/\n", encoding="utf-8")
+    (tmp_path / "app.py").write_text("def run():\n    return True\n", encoding="utf-8")
+    ignored = tmp_path / "reference-apps"
+    ignored.mkdir()
+    (ignored / "noisy.py").write_text("def copied_engine():\n    pass\n", encoding="utf-8")
+
+    graph = Atlas(tmp_path).refresh()
+
+    sources = {node.get("source_file") for node in graph["nodes"]}
+    assert "app.py" in sources
+    assert not any(str(source).startswith("reference-apps/") for source in sources if source)

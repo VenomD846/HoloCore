@@ -1,17 +1,78 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
-  <title id="title">HoloCore installation and AI-client connection workflow</title><desc id="desc">Install the HoloCore wheel, initialize a project World, create local knowledge state and client integrations, reload the AI client, and use commands or MCP tools.</desc>
-  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#07111f"/><stop offset="1" stop-color="#12342f"/></linearGradient><filter id="s"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-opacity=".28"/></filter><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#5eead4"/></marker><style>.f{font-family:Inter,Segoe UI,Arial,sans-serif}.t{fill:#f8fafc;font-size:32px;font-weight:700}.h{fill:#f8fafc;font-size:18px;font-weight:700}.p{fill:#c9dfdc;font-size:14px}.n{fill:#9dbbb6;font-size:12px}.l{stroke:#5eead4;stroke-width:3;fill:none;marker-end:url(#a)}</style></defs>
-  <rect width="1200" height="675" fill="url(#bg)"/><text x="60" y="62" class="f t">Install once, connect every supported AI client</text><text x="60" y="91" class="f p">HoloCore writes only missing integration files and keeps the knowledge World local.</text>
-  <g filter="url(#s)"><rect x="55" y="150" width="210" height="120" rx="16" fill="#173456" stroke="#38bdf8"/><text x="160" y="190" text-anchor="middle" class="f h">1. Install package</text><text x="160" y="220" text-anchor="middle" class="f p">uv tool install wheel</text><text x="160" y="245" text-anchor="middle" class="f n">provides holocore + MCP</text></g><path d="M265 210H330" class="l"/>
-  <g filter="url(#s)"><rect x="340" y="150" width="230" height="120" rx="16" fill="#113b39" stroke="#2dd4bf"/><text x="455" y="190" text-anchor="middle" class="f h">2. Initialize World</text><text x="455" y="220" text-anchor="middle" class="f p">holocore init</text><text x="455" y="245" text-anchor="middle" class="f n">non-destructive bootstrap</text></g><path d="M570 210H635" class="l"/>
-  <g filter="url(#s)"><rect x="645" y="130" width="260" height="160" rx="16" fill="#193a37" stroke="#2dd4bf"/><text x="775" y="171" text-anchor="middle" class="f h">3. Local project setup</text><text x="675" y="205" class="f p">• Git repository</text><text x="675" y="232" class="f p">• Archive + .holocore state</text><text x="675" y="259" class="f p">• commands + MCP configs</text></g><path d="M905 210H970" class="l"/>
-  <g filter="url(#s)"><rect x="980" y="150" width="165" height="120" rx="16" fill="#25325f" stroke="#818cf8"/><text x="1062" y="190" text-anchor="middle" class="f h">4. Reload</text><text x="1062" y="220" text-anchor="middle" class="f p">Open the project</text><text x="1062" y="245" text-anchor="middle" class="f n">client discovers tools</text></g>
-  <path d="M1062 270V340H200V375" class="l"/><path d="M1062 340H400V375" class="l"/><path d="M1062 340H600V375" class="l"/><path d="M1062 340H800V375" class="l"/><path d="M1062 340V375" class="l"/>
-  <g filter="url(#s)"><rect x="100" y="385" width="200" height="90" rx="14" fill="#26345e" stroke="#818cf8"/><text x="200" y="421" text-anchor="middle" class="f h">Codex</text><text x="200" y="447" text-anchor="middle" class="f n">AGENTS + skills + MCP</text></g>
-  <g filter="url(#s)"><rect x="310" y="385" width="180" height="90" rx="14" fill="#26345e" stroke="#818cf8"/><text x="400" y="421" text-anchor="middle" class="f h">Claude</text><text x="400" y="447" text-anchor="middle" class="f n">commands + MCP</text></g>
-  <g filter="url(#s)"><rect x="500" y="385" width="200" height="90" rx="14" fill="#26345e" stroke="#818cf8"/><text x="600" y="421" text-anchor="middle" class="f h">Cursor</text><text x="600" y="447" text-anchor="middle" class="f n">rules + commands + MCP</text></g>
-  <g filter="url(#s)"><rect x="710" y="385" width="180" height="90" rx="14" fill="#26345e" stroke="#818cf8"/><text x="800" y="421" text-anchor="middle" class="f h">Gemini</text><text x="800" y="447" text-anchor="middle" class="f n">commands + MCP</text></g>
-  <g filter="url(#s)"><rect x="900" y="385" width="220" height="90" rx="14" fill="#26345e" stroke="#818cf8"/><text x="1010" y="421" text-anchor="middle" class="f h">OpenCode / other</text><text x="1010" y="447" text-anchor="middle" class="f n">commands, MCP, or CLI</text></g>
-  <path d="M200 475V525H600" class="l"/><path d="M400 475V525H600" class="l"/><path d="M600 475V525" class="l"/><path d="M800 475V525H600" class="l"/><path d="M1010 475V525H600" class="l"/>
-  <g filter="url(#s)"><rect x="395" y="535" width="410" height="95" rx="16" fill="#113b39" stroke="#2dd4bf"/><text x="600" y="571" text-anchor="middle" class="f h">5. Use one HoloCore experience</text><text x="600" y="597" text-anchor="middle" class="f p">search • remember • recall • map • curate</text><text x="600" y="618" text-anchor="middle" class="f n">same engine and local World from every client</text></g>
+  <title id="title">HoloCore installation, shared Home selection, World setup, and client approval</title>
+  <desc id="desc">Install HoloCore, choose one shared Home, register the current project as a World, create shared Archive and local Atlas and memory state, install Claude and Codex hooks, then approve them in each client.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#07111f"/><stop offset="1" stop-color="#12342f"/></linearGradient>
+    <filter id="s"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity=".28"/></filter>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0L0 6L9 3z" fill="#5eead4"/></marker>
+    <style>.f{font-family:Inter,Segoe UI,Arial,sans-serif}.t{fill:#f8fafc;font-size:31px;font-weight:700}.h{fill:#f8fafc;font-size:18px;font-weight:700}.p{fill:#d1e4e0;font-size:14px}.n{fill:#9dbbb6;font-size:12px}.l{stroke:#5eead4;stroke-width:3;fill:none;marker-end:url(#a)}</style>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <text x="60" y="58" class="f t">Install once, choose one Home, connect every World</text>
+  <text x="60" y="87" class="f p">Setup separates the shared Archive from project-local Atlas, memory, chats, and client hooks.</text>
+
+  <g filter="url(#s)">
+    <rect x="45" y="130" width="205" height="125" rx="16" fill="#173456" stroke="#38bdf8"/>
+    <text x="147" y="170" text-anchor="middle" class="f h">1. Install</text>
+    <text x="147" y="201" text-anchor="middle" class="f p">uv tool install</text>
+    <text x="147" y="228" text-anchor="middle" class="f n">holocore + local MCP</text>
+  </g>
+  <path d="M250 192H285" class="l"/>
+  <g filter="url(#s)">
+    <rect x="295" y="120" width="240" height="145" rx="16" fill="#113b39" stroke="#2dd4bf"/>
+    <text x="415" y="158" text-anchor="middle" class="f h">2. Choose shared Home</text>
+    <text x="415" y="189" text-anchor="middle" class="f p">holocore setup --home &lt;Home&gt;</text>
+    <text x="415" y="218" text-anchor="middle" class="f n">one saved choice for all projects</text>
+    <text x="415" y="241" text-anchor="middle" class="f n">Archive = one Obsidian vault</text>
+  </g>
+  <path d="M535 192H570" class="l"/>
+  <g filter="url(#s)">
+    <rect x="580" y="120" width="260" height="145" rx="16" fill="#193a37" stroke="#2dd4bf"/>
+    <text x="710" y="158" text-anchor="middle" class="f h">3. Register this World</text>
+    <text x="710" y="189" text-anchor="middle" class="f p">Worlds/&lt;world-id&gt;</text>
+    <text x="710" y="218" text-anchor="middle" class="f n">durable project notes</text>
+    <text x="710" y="241" text-anchor="middle" class="f n">Shared remains explicit</text>
+  </g>
+  <path d="M840 192H875" class="l"/>
+  <g filter="url(#s)">
+    <rect x="885" y="110" width="270" height="165" rx="16" fill="#25325f" stroke="#818cf8"/>
+    <text x="1020" y="148" text-anchor="middle" class="f h">4. Build local state</text>
+    <text x="910" y="181" class="f p">• graphify-out/graph.*</text>
+    <text x="910" y="208" class="f p">• .holocore Animus + chats</text>
+    <text x="910" y="235" class="f p">• commands + MCP + hooks</text>
+    <text x="1020" y="259" text-anchor="middle" class="f n">Atlas mirror stays internal</text>
+  </g>
+
+  <path d="M1020 275V330H305V365" class="l"/>
+  <path d="M1020 330H600V365" class="l"/>
+  <path d="M1020 330V365" class="l"/>
+
+  <g filter="url(#s)">
+    <rect x="105" y="375" width="400" height="140" rx="17" fill="#26345e" stroke="#818cf8"/>
+    <text x="305" y="414" text-anchor="middle" class="f h">Claude Code</text>
+    <text x="305" y="444" text-anchor="middle" class="f p">SessionEnd capture installed</text>
+    <text x="305" y="473" text-anchor="middle" class="f p">restart → /mcp → approve HoloCore</text>
+    <text x="305" y="496" text-anchor="middle" class="f n">then use /holocore-search</text>
+  </g>
+  <g filter="url(#s)">
+    <rect x="520" y="375" width="400" height="140" rx="17" fill="#26345e" stroke="#818cf8"/>
+    <text x="720" y="414" text-anchor="middle" class="f h">Codex</text>
+    <text x="720" y="444" text-anchor="middle" class="f p">Stop capture installed</text>
+    <text x="720" y="473" text-anchor="middle" class="f p">restart → /hooks → trust HoloCore</text>
+    <text x="720" y="496" text-anchor="middle" class="f n">then use $holocore-search</text>
+  </g>
+  <g filter="url(#s)">
+    <rect x="935" y="375" width="220" height="140" rx="17" fill="#26345e" stroke="#818cf8"/>
+    <text x="1045" y="414" text-anchor="middle" class="f h">Other clients</text>
+    <text x="1045" y="444" text-anchor="middle" class="f p">native commands</text>
+    <text x="1045" y="473" text-anchor="middle" class="f p">project MCP</text>
+    <text x="1045" y="496" text-anchor="middle" class="f n">capture not yet automatic</text>
+  </g>
+
+  <path d="M305 515V555H600" class="l"/><path d="M720 515V555H600" class="l"/><path d="M1045 515V555H600" class="l"/>
+  <g filter="url(#s)">
+    <rect x="350" y="565" width="500" height="75" rx="16" fill="#113b39" stroke="#2dd4bf"/>
+    <text x="600" y="596" text-anchor="middle" class="f h">5. One focused HoloCore experience</text>
+    <text x="600" y="621" text-anchor="middle" class="f n">active World + Shared Archive • local Atlas and memory • explicit client trust</text>
+  </g>
 </svg>

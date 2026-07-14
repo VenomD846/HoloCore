@@ -7,12 +7,14 @@ from unittest.mock import patch
 
 from holocore.install import bootstrap_project
 from holocore.engine import HoloCoreEngine
-from holocore.layout import integration_status
+from holocore.layout import integration_status, world_paths
 
 
-def test_bootstrap_creates_native_files_for_all_clients(tmp_path: Path) -> None:
+def test_bootstrap_creates_native_files_for_all_clients(
+    tmp_path: Path, isolated_holocore_home: Path
+) -> None:
     root = tmp_path / "World with spaces"
-    report = bootstrap_project(root)
+    report = bootstrap_project(root, home=isolated_holocore_home)
 
     expected = {
         ".holocore/config.json",
@@ -21,7 +23,9 @@ def test_bootstrap_creates_native_files_for_all_clients(tmp_path: Path) -> None:
         ".holocore/mcp.json",
         ".holocore/raw-chats",
         ".codex/config.toml",
+        ".codex/hooks.json",
         ".mcp.json",
+        ".claude/settings.json",
         ".gemini/settings.json",
         ".cursor/mcp.json",
         ".cursor/rules/holocore.mdc",
@@ -32,14 +36,30 @@ def test_bootstrap_creates_native_files_for_all_clients(tmp_path: Path) -> None:
         "HOLOCORE.md",
         "HOLOCORE-START-HERE.md",
         ".gitignore",
-        "Archive",
-        "Archive/Inbox",
-        "Archive/wiki",
-        "Archive/system",
-        "Archive/system/index.md",
-        "Archive/README.md",
     }
     assert expected <= {path.relative_to(root).as_posix() for path in report.created}
+    assert not (root / "Archive").exists()
+    config = json.loads((root / ".holocore/config.json").read_text(encoding="utf-8"))
+    world_archive = isolated_holocore_home / "Archive" / "Worlds" / report.world_id
+    assert config == {
+        "version": 2,
+        "world": root.name,
+        "world_id": report.world_id,
+        "root": str(root.resolve()),
+        "home": str(isolated_holocore_home),
+        "archive": str(world_archive),
+        "shared_archive": str(isolated_holocore_home / "Archive" / "Shared"),
+        "state_dir": str(root / ".holocore"),
+        "animus": str(root / ".holocore" / "animus.db"),
+        "raw_chats": str(root / ".holocore" / "raw-chats"),
+    }
+    paths = world_paths(root)
+    assert paths["home"] == str(isolated_holocore_home)
+    assert paths["archive"] == str(isolated_holocore_home / "Archive")
+    assert paths["world_archive"] == str(world_archive)
+    assert paths["shared_archive"] == str(isolated_holocore_home / "Archive" / "Shared")
+    assert paths["memory_shards"] == str(root / ".holocore" / "animus.db")
+    assert paths["raw_chats"] == str(root / ".holocore" / "raw-chats")
     assert json.loads((root / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"]["holocore"]["cwd"] == str(root.resolve())
     codex = tomllib.loads((root / ".codex/config.toml").read_text(encoding="utf-8"))
     assert codex["mcp_servers"]["holocore"]["args"] == ["-m", "holocore.mcp_server"]
@@ -53,6 +73,13 @@ def test_bootstrap_creates_native_files_for_all_clients(tmp_path: Path) -> None:
     assert "**Constellation** = group of related mapped things" in policy
     assert "C:\\Users" not in policy
     assert HoloCoreEngine(root).status()["readiness"] == {"ready": True, "missing": []}
+
+    codex_hooks = json.loads((root / ".codex/hooks.json").read_text(encoding="utf-8"))
+    claude_hooks = json.loads((root / ".claude/settings.json").read_text(encoding="utf-8"))
+    assert "holocore.capture_hook --client codex" in json.dumps(codex_hooks["hooks"]["Stop"])
+    assert "holocore.capture_hook --client claude" in json.dumps(
+        claude_hooks["hooks"]["SessionEnd"]
+    )
 
 
 def test_bootstrap_merges_without_replacing_user_instructions(tmp_path: Path) -> None:
@@ -115,3 +142,79 @@ def test_fresh_bootstrap_is_idempotent(tmp_path: Path) -> None:
 
     assert not second.created
     assert not second.updated
+
+
+def test_capture_hooks_merge_preserves_user_json_and_is_idempotent(
+    tmp_path: Path, isolated_holocore_home: Path
+) -> None:
+    root = tmp_path / "world"
+    (root / ".codex").mkdir(parents=True)
+    (root / ".claude").mkdir()
+    codex_path = root / ".codex" / "hooks.json"
+    claude_path = root / ".claude" / "settings.json"
+    codex_path.write_text(
+        json.dumps(
+            {
+                "userSetting": {"preserve": True},
+                "hooks": {
+                    "Stop": [{"hooks": [{"type": "command", "command": "user-stop"}]}],
+                    "Other": [{"hooks": [{"type": "command", "command": "other"}]}],
+                },
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    claude_path.write_text(
+        json.dumps(
+            {
+                "permissions": {"allow": ["Read"]},
+                "hooks": {
+                    "SessionEnd": [
+                        {"hooks": [{"type": "command", "command": "user-session-end"}]}
+                    ]
+                },
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    bootstrap_project(
+        root,
+        init_git=False,
+        platforms=["codex", "claude"],
+        home=isolated_holocore_home,
+    )
+    codex_first = codex_path.read_bytes()
+    claude_first = claude_path.read_bytes()
+    bootstrap_project(
+        root,
+        init_git=False,
+        platforms=["codex", "claude"],
+        home=isolated_holocore_home,
+    )
+
+    codex = json.loads(codex_path.read_text(encoding="utf-8"))
+    claude = json.loads(claude_path.read_text(encoding="utf-8"))
+    assert codex["userSetting"] == {"preserve": True}
+    assert codex["hooks"]["Stop"][0]["hooks"][0]["command"] == "user-stop"
+    assert codex["hooks"]["Other"][0]["hooks"][0]["command"] == "other"
+    assert claude["permissions"] == {"allow": ["Read"]}
+    assert claude["hooks"]["SessionEnd"][0]["hooks"][0]["command"] == "user-session-end"
+    assert len(
+        [
+            group
+            for group in codex["hooks"]["Stop"]
+            if "holocore.capture_hook" in json.dumps(group)
+        ]
+    ) == 1
+    assert len(
+        [
+            group
+            for group in claude["hooks"]["SessionEnd"]
+            if "holocore.capture_hook" in json.dumps(group)
+        ]
+    ) == 1
+    assert codex_path.read_bytes() == codex_first
+    assert claude_path.read_bytes() == claude_first

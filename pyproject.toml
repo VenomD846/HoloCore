@@ -4,9 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "holocore"
-version = "0.4.0"
+version = "0.5.0"
 description = "HoloCore Context Engine: local-first Archive, Atlas, Animus, CLI, MCP, and focused AI context"
 requires-python = ">=3.11"
+dependencies = ["pypdf>=5.0"]
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
 authors = [{ name = "HoloCore Contributors" }]

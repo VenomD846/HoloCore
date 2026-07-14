@@ -1,26 +1,116 @@
 # HoloCore Context Engine
 
-**HoloCore Context Engine** is a self-contained local AI knowledge engine combining a curated Markdown Archive, a native structural Atlas, and SQLite-backed episodic Animus behind one CLI and MCP server. The product name is **HoloCore Context Engine**; its short name and CLI command remain `HoloCore` and `holocore`.
+**HoloCore Context Engine** is a local AI knowledge system for all your projects. Version `0.5.0` combines one shared Markdown Archive with a project-local structural Atlas and project-local episodic Animus behind one CLI and MCP server.
 
 ![HoloCore Context Engine checks Atlas, reads matching Archive knowledge, optionally recalls Animus history, and sends focused context to reduce input tokens](docs/assets/holocore-context-engine-token-savings.png)
 
-Current version: `0.4.0`. The runtime is HoloCore-native and does **not** import, launch, or require the original Obsidian Second Brain, Graphify, or MemPalace applications. Those projects served as behavioral references during the rewrite and are not included as runtime components.
+The runtime is HoloCore-native. It does not import, launch, or require the original Obsidian Second Brain, Graphify, or MemPalace applications. Those projects were behavioral references for the rewrite and are not runtime components.
 
 ## In simple terms
 
-HoloCore gives an AI assistant three things it normally loses between sessions:
+HoloCore gives an AI assistant three kinds of context:
 
-- **Archive is the library:** trusted notes, rules, and decisions.
+- **Archive is the library:** verified notes, rules, and decisions.
 - **Atlas is the map:** files, functions, dependencies, and relationships.
-- **Animus is the memory:** previous work, conversations, errors, and useful context.
+- **Animus is the memory:** previous work, conversations, errors, and useful events.
 
-You ask one question. HoloCore checks readiness first, uses Atlas to narrow the project scope, searches the corresponding Archive notes, consults Animus only when previous history matters, and then opens exact source files. Every selected stage runs at most once and the route cannot call itself. Read the [step-by-step visual guide](docs/visual-guide.md) for illustrated examples.
+You choose one **HoloCore Home**. Its `Archive` folder is one Obsidian-ready vault shared by every registered project. Each project is a **World** with its own section in that vault and its own private generated runtime.
 
-### Do I need Obsidian?
+```text
+<Home>/
+├── Archive/                       One Obsidian vault
+│   ├── Worlds/<world-id>/         Durable knowledge for one project
+│   ├── Shared/                    Knowledge intentionally shared by projects
+│   └── system/index.md            Vault entry point
+└── worlds.json                    Registered World list
 
-No. HoloCore's Atlas is a self-contained HTML graph that opens in a normal web browser. Obsidian is optional and is only needed if you want to use its visual graph interface for the linked Markdown notes in Archive. See [prerequisites and graph viewing options](docs/prerequisites.md).
+<project>/
+└── .holocore/
+    ├── atlas.json                 Project structure
+    ├── atlas.html                 Interactive structure graph
+    ├── animus.db                  Project history
+    └── raw-chats/                 Original chat audits
+```
 
-### Canonical vocabulary
+Archive is shared as a vault, but retrieval remains scoped: HoloCore searches the active World's entries and `Shared`, not every other World.
+
+## How retrieval works
+
+HoloCore builds one route and executes it once:
+
+`readiness check → Atlas → active World Archive + Shared → Animus when history matters → exact sources`
+
+`holocore search` checks Atlas freshness and refreshes the local graph when required. Atlas narrows the project scope first. Archive adds verified knowledge. Animus runs last only for questions about earlier work, errors, attempts, or conversations. Every selected subsystem runs at most once, and a recursion guard prevents a HoloCore search from routing back into itself.
+
+## Automatic memory
+
+Setup installs local capture hooks for supported clients:
+
+- Claude Code captures at `SessionEnd`.
+- Codex captures at `Stop`.
+
+The hook reads only new transcript content, stores a raw audit under the project, distills useful Memory Shards into local Animus, and automatically promotes useful facts, decisions, preferences, entities, and summaries into the active World's Archive. Promotion uses deterministic names and deduplication so the same extraction is not repeatedly added.
+
+Hooks are installed automatically but require client trust once:
+
+- In Claude Code, restart the project and use `/mcp` to approve or confirm the HoloCore server.
+- In Codex, restart or reopen the project and use `/hooks` to review and trust the HoloCore Stop hook.
+
+## Quick start
+
+Install from Git:
+
+```powershell
+uv tool install "git+https://github.com/VenomD846/HoloCore.git"
+```
+
+Set up the first project and explicitly choose the shared Home:
+
+```powershell
+cd <project>
+holocore setup --home <Home>
+```
+
+Later projects reuse the saved Home:
+
+```powershell
+cd <another-project>
+holocore setup
+```
+
+On an interactive first run without `--home`, setup asks where the shared Home should live. `holocore home <Home>` selects or changes it explicitly.
+
+After setup:
+
+```powershell
+holocore status
+holocore paths
+holocore worlds
+holocore search "Why did we choose SQLite?"
+```
+
+Open `<Home>/Archive` as one Obsidian vault if you want Obsidian's Markdown and graph interface. Obsidian is optional; HoloCore works from the CLI and AI clients without it.
+
+## Keep every World current
+
+```powershell
+holocore sync-all
+holocore update
+```
+
+`sync-all` reconciles generated integration files and refreshes Atlas for every registered World. `update` updates the installed Git version of HoloCore, then performs the same all-World reconciliation. Missing project folders are reported without stopping other Worlds.
+
+## AI clients
+
+Setup creates non-destructive project integrations for Claude Code, Codex, Gemini, Cursor, and OpenCode:
+
+- Claude receives `.mcp.json`, project slash commands and skills, plus a `SessionEnd` capture hook.
+- Codex receives `.codex/config.toml`, `$`-invoked skills under `.agents/skills`, plus a `Stop` capture hook.
+- Gemini, Cursor, and OpenCode receive their native project MCP and command formats.
+
+Use `holocore connect` to add or repair integrations after installing another client. Existing unrelated settings are preserved; invalid files are skipped with a warning rather than overwritten.
+
+## Canonical vocabulary
 
 - **Archive** = verified knowledge.
 - **Atlas** = structural map.
@@ -32,44 +122,18 @@ No. HoloCore's Atlas is a self-contained HTML graph that opens in a normal web b
 - **Signal** = one mapped thing.
 - **Constellation** = group of related mapped things.
 
-## Quick start
-
-```powershell
-uv tool install "git+https://github.com/VenomD846/HoloCore.git"
-cd C:\path\to\project
-holocore setup
-```
-
-After a PyPI release, the shorter install command will be:
-
-```powershell
-uv tool install holocore
-```
-
-`setup` turns the current project into a HoloCore World. It creates a visible top-level `Archive` Obsidian vault, private generated state in `.holocore`, `HOLOCORE-START-HERE.md`, client-native command definitions, and Codex project skills. It also registers the HoloCore MCP server for Claude Code, Codex, Gemini, Cursor, and OpenCode without overwriting existing configuration.
-
-Open `HOLOCORE-START-HERE.md` after setup, or run `holocore paths` to see every generated location. Use `holocore doctor` to check the installation, `holocore connect` to add or repair client connections, and `holocore open-archive` to open the Archive.
-
-Implemented today: native Archive operations, Atlas JSON/HTML graph extraction and queries, Animus memory storage and recall, raw-chat auditing with distilled memory, configurable OpenAI-compatible LLM providers, unified search, CLI/MCP tools, client-native commands, Codex project skills, and non-destructive client bootstrap.
-
-## Use it from an AI client
-
-For Claude Code, setup adds the project MCP connection to `.mcp.json` and creates slash commands such as `/holocore-search`. Restart Claude after setup, run `/mcp` to confirm the connection, then use `/holocore-search` or the generated MCP prompt `/mcp__holocore__search`.
-
-For Codex, setup adds the project MCP connection to `.codex/config.toml` and creates `$`-invoked project skills under `.agents/skills`. Codex does not use HoloCore slash commands; restart Codex or reopen the project, then invoke `$holocore-search`.
-
-Gemini receives TOML command definitions under `.gemini/commands`, while Cursor and OpenCode receive their native project command formats. All integrations are non-destructive. See the [AI-client guide](docs/portability-ai-clients.md) for details.
-
-Recommended GitHub discovery topics are `claude-code`, `model-context-protocol`, `mcp-server`, `ai-context`, `knowledge-graph`, `second-brain`, `ai-memory`, `obsidian`, and `local-first`.
-
 ## Documentation
+
+![HoloCore parity release workflow](docs/assets/workflow-parity-release.svg)
+
+The current release includes Atlas clustering, audits, explain/path analysis and exports; Animus mining, checkpoints, diary, consolidation and optional embedding retrieval; conflict-aware Archive promotion; native AI-client integration generation; and automated interface/parity checks. HoloCore's HTML Atlas is portable and AI-friendly. For the richest visual knowledge graph, open the shared `Archive` vault in Obsidian.
 
 - [Visual guide](docs/visual-guide.md)
 - [User guide](docs/user-guide.md)
 - [Installation guide](docs/installation.md)
 - [Prerequisites and optional graph tools](docs/prerequisites.md)
 - [Workflow guide](docs/workflows.md)
-- [Slash-command reference](docs/slash-commands.md)
+- [Slash-command and skill reference](docs/slash-commands.md)
 - [Configuration guide](docs/configuration.md)
 - [MCP reference](docs/mcp-reference.md)
 - [Architecture and technical guide](docs/architecture.md)
@@ -81,15 +145,15 @@ Recommended GitHub discovery topics are `claude-code`, `model-context-protocol`,
 
 ## Safety model
 
-Reads and health checks are safe by default. Setup adds or merges HoloCore integration entries without overwriting unrelated client configuration. Archive creation, Atlas refresh/HTML generation, and Animus capture/refinement are explicit writes. The baseline remains local and keyless when no remote LLM is configured.
+HoloCore is local-first. Archive Markdown stays in the user-selected Home. Atlas, Animus, transcript cursors, and raw chats stay inside each project. Setup and reconciliation merge only HoloCore-owned integration entries. Capture hooks are non-blocking and should never prevent the parent AI client from ending a session.
 
-## License and commercial use
+Raw chats and Animus can contain sensitive information. HoloCore adds their paths to the project `.gitignore`; protect and back them up according to your own data policy.
 
-HoloCore is licensed under the [Apache License 2.0](LICENSE). It may be used, modified, distributed, and used commercially subject to the license terms. The HoloCore name and branding are not granted by the software license except for reasonable attribution and identification of the project's origin.
+## License and development
 
-Third-party behavioral inspirations and their licenses are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+HoloCore is licensed under the [Apache License 2.0](LICENSE). Third-party behavioral inspirations and their licenses are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-## Development verification
+Development verification:
 
 ```powershell
 $env:PYTHONPATH = "src"

@@ -27,6 +27,23 @@ The full product name should be used in repository headings, release pages, scre
 - `obsidian`
 - `second-brain`
 - `token-optimization`
+- `ai-agent`
+- `developer-tools`
+- `semantic-search`
+- `knowledge-management`
+- `claude`
+- `codex`
+- `graph-visualization`
+
+## GitHub About metadata
+
+Suggested repository description:
+
+`Local-first AI context engine combining a structural Atlas, verified Archive, episodic Animus memory, CLI, MCP, and focused context routing.`
+
+Suggested website:
+
+`https://github.com/VenomD846/HoloCore#readme`
 
 GitHub topics improve discovery but do not configure Claude. Claude discovers HoloCore inside a World through the generated `CLAUDE.md`, `.mcp.json`, commands, and `holocore-mcp` entry.
 

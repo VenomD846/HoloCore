@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import date
 
 import pytest
 
@@ -48,7 +49,7 @@ def test_create_update_validate_and_conflict(tmp_path: Path) -> None:
     updated = archive.read("wiki/entry.md")
     assert "A preserved addition." in updated["content"]
     assert updated["provenance"] == "fixture"
-    assert updated["frontmatter"]["updated"] == "2026-07-13"
+    assert updated["frontmatter"]["updated"] == date.today().isoformat()
     assert archive.validate("wiki/entry.md")["ok"] is True
 
     with pytest.raises(ArchiveConflictError):

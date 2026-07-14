@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from holocore.atlas_html import generate_atlas_html, render_atlas_html
+from holocore.atlas_html import generate_atlas_html, generate_atlas_views, render_atlas_html
 from holocore.commands import COMMANDS, get_command, render_all_commands, render_codex_skill
 
 
@@ -41,6 +41,20 @@ def test_html_escapes_script_breakout_and_writes_next_to_atlas(tmp_path: Path) -
     assert "\\u003c/script\\u003e" in text
 
 
+def test_viewer_bundle_renders_once_to_public_and_compatibility_paths(tmp_path: Path) -> None:
+    source = tmp_path / "graph.json"
+    source.write_text(json.dumps(_graph()), encoding="utf-8")
+    outputs = [tmp_path / "atlas.html", tmp_path / "graph.html", tmp_path / ".holocore" / "atlas.html"]
+
+    written = generate_atlas_views(source, outputs)
+
+    assert written == outputs
+    payloads = [path.read_text(encoding="utf-8") for path in outputs]
+    assert len(set(payloads)) == 1
+    assert 'name="holocore-atlas-viewer" content="2"' in payloads[0]
+    assert "deconflictLabels" in payloads[0]
+
+
 def test_html_rejects_invalid_graph_and_mapping_requires_output() -> None:
     with pytest.raises(ValueError):
         render_atlas_html({"nodes": {}, "links": []})
@@ -51,11 +65,14 @@ def test_html_rejects_invalid_graph_and_mapping_requires_output() -> None:
 def test_command_catalog_has_required_cross_platform_commands() -> None:
     names = {command.name for command in COMMANDS}
     assert names == {
-        "init", "search", "remember", "recall", "atlas-refresh", "atlas-view",
+        "init", "search", "remember", "recall", "animus-sync", "animus-checkpoint", "diary", "timeline", "consolidate", "animus-export",
+        "atlas-refresh", "atlas-view", "atlas-explain", "atlas-path", "atlas-affected", "atlas-neighborhood", "atlas-constellations", "atlas-audit", "atlas-export",
         "archive-search", "archive-create", "status", "doctor", "setup", "connect",
-        "paths", "open-archive",
+        "home", "worlds", "global-graph", "sync-all", "update", "ingest", "inbox-sync", "paths", "open-archive",
     }
     assert get_command("holocore-atlas-view").invocation.startswith("holocore atlas-view")
+    assert get_command("holocore-sync-all").write is True
+    assert get_command("home").write is False
 
 
 def test_renderers_emit_every_command_with_portable_paths_and_arguments() -> None:

@@ -1,0 +1,24 @@
+from pathlib import Path
+
+from holocore.animus import Animus
+from holocore.animus_retrieval import AnimusRetriever
+from holocore.archive_promotion import promote_entry
+
+
+def test_embedding_retrieval_can_use_custom_embedder(tmp_path: Path) -> None:
+    animus = Animus(tmp_path / "animus.db")
+    animus.create_world("w")
+    animus.create_sector("w", "project")
+    animus.ingest("blue automobile", world="w", sector="project", source_ref="test")
+    vectors = {"blue automobile": [1.0, 0.0], "vehicle": [1.0, 0.0]}
+    result = AnimusRetriever(animus, vectors.get).search("vehicle", world="w", sector="project")
+    assert result and result[0].method == "semantic"
+
+
+def test_world_to_shared_promotion_reports_conflicts(tmp_path: Path) -> None:
+    source = tmp_path / "world" / "note.md"; source.parent.mkdir()
+    shared = tmp_path / "shared"
+    source.write_text("one", encoding="utf-8")
+    assert promote_entry(source, shared)["status"] == "promoted"
+    source.write_text("two", encoding="utf-8")
+    assert promote_entry(source, shared)["status"] == "conflict"

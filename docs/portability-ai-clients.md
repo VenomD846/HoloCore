@@ -1,74 +1,132 @@
 # Portability and AI-client guide
 
-## One setup command per project
+## One Home, many project connections
 
-From the project you want the AI client to use:
+Install HoloCore once, choose one shared Home, and run setup in each project:
 
 ```powershell
-cd C:\path\to\project
+cd <project>
+holocore setup --home <Home>
+```
+
+Later Worlds use the saved Home:
+
+```powershell
+cd <another-project>
 holocore setup
 ```
 
-Setup registers the local `holocore-mcp` server and creates each client's native command definitions, including Gemini TOML commands and `$`-invoked Codex project skills. Registration is non-destructive: unrelated configuration remains in place, and HoloCore reports any entry it cannot merge safely.
+Every client in a World reaches the same two durable scopes:
 
-Run `holocore paths` to inspect the paths selected for the current project. Run `holocore connect` after installing another client or to repair its HoloCore registration.
+- `<Home>/Archive/Worlds/<world-id>` for that project;
+- `<Home>/Archive/Shared` for explicitly shared knowledge.
+
+Atlas, Animus, raw chats, and hook cursors remain under each project.
 
 ## Claude Code
 
-HoloCore registers the project server in `<project>/.mcp.json` and creates project slash commands.
+Setup creates or merges:
 
-1. Run `holocore setup` from the project.
-2. Restart Claude Code.
-3. Run `/mcp` and confirm that `holocore` is connected.
-4. Invoke `/holocore-search`, or use the generated MCP prompt `/mcp__holocore__search`.
+- `<project>/.mcp.json`
+- `<project>/.claude/commands/`
+- `<project>/.claude/skills/`
+- `<project>/.claude/settings.json` with a `SessionEnd` capture hook
 
-If `.mcp.json` already contains other servers, setup preserves them and adds only the HoloCore entry.
+After setup:
+
+1. Restart Claude Code in the project.
+2. Run `/mcp`.
+3. Approve or confirm the HoloCore project server.
+4. Use `/holocore-search` or `/mcp__holocore__search`.
+
+The `SessionEnd` hook captures new transcript content automatically. MCP approval and hook installation are separate client controls; verify both with `holocore status`.
 
 ## Codex
 
-HoloCore registers the project server in `<project>/.codex/config.toml` and creates `$`-invoked project skills under `<project>/.agents/skills`. These are Codex skills, not slash commands.
+Setup creates or merges:
 
-1. Run `holocore setup` from the project.
-2. Restart Codex or reopen the project.
-3. Invoke `$holocore-search`.
+- `<project>/.codex/config.toml`
+- `<project>/.codex/hooks.json` with a `Stop` capture hook
+- `<project>/.agents/skills/`
 
-Existing Codex settings and unrelated skills remain untouched.
+After setup:
+
+1. Restart Codex or reopen the project.
+2. Run `/hooks`.
+3. Review and trust the HoloCore Stop hook.
+4. Invoke `$holocore-search`.
+
+Codex project skills use `$`, not HoloCore slash commands. The MCP server and Stop hook both run through the exact Python environment recorded during setup.
 
 ## Gemini
 
-Gemini MCP settings are stored in `<project>/.gemini/settings.json`. Its HoloCore commands are TOML definitions under `<project>/.gemini/commands`, for example `.gemini/commands/holocore-search.toml`.
+Gemini MCP settings are merged into `<project>/.gemini/settings.json`. HoloCore commands are TOML definitions under `<project>/.gemini/commands`.
+
+Automatic session capture is currently implemented for Claude and Codex only.
 
 ## Cursor and OpenCode
 
-Setup uses each client's native project command format. Restart or reload the client after setup. If command discovery is unavailable in a particular client version, use its HoloCore MCP tools or run `holocore search` in the project terminal.
+Setup uses each client's native project MCP and command format. Restart or reload the project after setup. If command discovery is unavailable in a client version, use HoloCore MCP tools or run `holocore search` in the project terminal.
+
+Automatic session capture is currently implemented for Claude and Codex only.
 
 ## Generic MCP shape
 
-HoloCore writes the exact Python environment that owns the installed package, so AI clients do not depend on inheriting your terminal's PATH. The generated entry has this shape (the executable path is selected automatically):
+The generated connection uses the exact HoloCore Python environment:
 
 ```json
 {
   "mcpServers": {
     "holocore": {
-      "command": "C:\\path\\to\\holocore-environment\\python.exe",
+      "command": "<python-executable>",
       "args": ["-m", "holocore.mcp_server"],
-      "cwd": "C:\\path\\to\\project"
+      "cwd": "<project>"
     }
   }
 }
 ```
 
-Codex stores the equivalent entry in TOML. OpenCode uses its command-array shape. Prefer `holocore connect` over manual editing because it writes every selected integration correctly and preserves existing settings.
+Codex stores the equivalent fields in TOML. OpenCode uses its command-array form. Prefer `holocore connect` over hand editing because it preserves unrelated configuration and repairs HoloCore-owned entries consistently.
 
-## Moving a World between machines
+## Move or copy one World
 
-1. Install HoloCore from the repository Git URL (or with `uv tool install holocore` after the PyPI release).
-2. Copy or clone the project, including `Archive`. Include `.holocore` only if the generated Atlas and Animus history should travel.
-3. Change into the copied project and run `holocore setup`.
-4. Run `holocore doctor`, then restart or reopen each AI client.
+1. Install HoloCore on the destination machine.
+2. Copy or clone `<project>`.
+3. Decide whether project-local `.holocore` history should travel.
+4. Select the destination machine's Home.
+5. Run `holocore setup --home <Home>` from the copied project.
+6. Run `holocore doctor`, then approve Claude `/mcp` or Codex `/hooks` as applicable.
 
-Setup refreshes machine-specific client registrations without replacing unrelated configuration. Treat `Archive`, `.holocore/animus.db`, and `.holocore/raw-chats` as potentially sensitive project data. Do not copy the SQLite database while HoloCore is writing to it.
+Because World IDs include the normalized absolute path, a copied project at a different path may register with a different ID. HoloCore does not silently merge the old and new World sections.
 
-## Portability contract
+## Move the shared Home
 
-HoloCore's runtime is the installed `holocore` package plus project-local data. The original Obsidian Second Brain, Graphify, and MemPalace applications are not required. Obsidian remains optional: choose **Open folder as vault** and select `<project>/Archive` if you want its Markdown and graph interface.
+HoloCore does not automate Home migration.
+
+1. Stop clients that may be writing Archive or Animus data.
+2. Copy the complete `<Home>` directory to the destination.
+3. Run `holocore home <new-Home>`.
+4. Run setup from each World whose registry path changed.
+5. Run `holocore sync-all`.
+
+Keep the old Home until the new Archive and registry are verified. Selecting another Home changes the pointer; it does not move files.
+
+## Reconcile after upgrades or client changes
+
+```powershell
+holocore sync-all
+```
+
+This reruns non-destructive setup and refreshes Atlas for every registered available World.
+
+```powershell
+holocore update
+```
+
+This reinstalls HoloCore from Git through `uv`, then performs the same reconciliation.
+
+## Portability and privacy contract
+
+The portable durable brain is `<Home>/Archive` plus `<Home>/worlds.json`. Project `.holocore` contains generated structure, raw transcripts, and episodic history. Copy it only when that local state should travel.
+
+Do not copy `animus.db` while HoloCore is writing to it. Treat raw chats and Animus as sensitive. Obsidian remains optional; when used, open `<Home>/Archive` as the one vault.

@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import Any
 
 from .animus import Animus
-from .archive import Archive
+from .archive import ArchiveView
 from .atlas import Atlas
 from .config import Config
 from .models import Result
+from .animus_retrieval import AnimusRetriever, OpenAICompatibleEmbedder
 
 
 class RouteLoopError(RuntimeError):
@@ -38,22 +39,30 @@ _ROUTE_STACK: ContextVar[tuple[tuple[str, str], ...]] = ContextVar("holocore_rou
 class Router:
     """Check-first router; selected subsystems execute once without recursion."""
 
-    HISTORY = ("previous", "prior", "earlier", "error", "debug", "conversation", "history", "remember", "before", "again", "last time")
+    HISTORY = ("previous", "prior", "earlier", "error", "debug", "conversation", "history", "remember", "before", "again", "last time", "decision", "decided", "attempt", "tried", "lesson")
 
     def __init__(self, root: Path, config: Config | None = None):
         self.root = root.resolve()
         self.config = config or Config.load(root=self.root)
-        self.archive = Archive(self.config.vault)
-        self.atlas = Atlas(self.root, self.config.atlas_path)
+        self.archive = ArchiveView(self.config.vault, self.config.shared_archive)
+        # Keep Graphify-compatible public output while retaining Atlas's
+        # private `.holocore/atlas.json` compatibility mirror.
+        self.atlas = Atlas(self.root)
         self.animus = Animus(self.config.animus_path)
-        self.animus.create_world(self.root.name)
-        for sector in ("general", "project", "conversations"):
-            self.animus.create_sector(self.root.name, sector)
+        embedding = (self.config.llm or {}).get("embedding") if self.config.llm else None
+        self.retriever = AnimusRetriever(self.animus, OpenAICompatibleEmbedder(str(embedding["base_url"]), str(embedding["model"])) if isinstance(embedding, dict) and embedding.get("base_url") and embedding.get("model") else None)
+        self.world_id = self.config.world_id or self.root.name
         self.last_plan: RoutePlan | None = None
+
+    def ensure_memory_scope(self) -> None:
+        """Create the active Animus scope only immediately before a memory write/read."""
+        self.animus.create_world(self.world_id, self.root.name, {"root": str(self.root)})
+        for sector in ("general", "project", "conversations", "sources"):
+            self.animus.create_sector(self.world_id, sector)
 
     def plan(self, query: str, world: str | None = None) -> RoutePlan:
         """Check required folders and Atlas freshness before building a read route."""
-        scope = world or self.root.name
+        scope = world or self.world_id
         required_paths = (self.config.state_dir, self.config.vault)
         missing_paths = tuple(str(path) for path in required_paths if not path.is_dir())
         atlas_status = self.atlas.freshness()
@@ -85,7 +94,7 @@ class Router:
         return " ".join(dict.fromkeys(parts))
 
     def search(self, query: str, world: str | None = None) -> list[Result]:
-        scope = world or self.root.name
+        scope = world or self.world_id
         route_key = (query.casefold(), scope.casefold())
         stack = _ROUTE_STACK.get()
         if route_key in stack:
@@ -110,10 +119,17 @@ class Router:
                 results.append(Result("ARCHIVE", hit["title"], hit["snippet"], hit["path"]))
 
             if plan.use_animus:
+                self.ensure_memory_scope()
                 memory_query = self._expanded_query(archive_query, archive_hits, ("title", "path"))
-                for hit in self.animus.search(memory_query, world=scope):
-                    source = hit.provenance[0].source_ref if hit.provenance else ""
-                    results.append(Result("ANIMUS", f"Memory Shard {hit.id}", hit.content, source))
+                if self.retriever.embedder is None:
+                    hits = self.animus.search(memory_query, world=scope)
+                    for hit in hits:
+                        source = hit.provenance[0].source_ref if hit.provenance else ""
+                        results.append(Result("ANIMUS", f"Memory Shard {hit.id}", hit.content, source))
+                else:
+                    for hit in self.retriever.search(memory_query, world=scope):
+                        source = hit.shard.provenance[0].source_ref if hit.shard.provenance else ""
+                        results.append(Result("ANIMUS", f"Memory Shard {hit.shard.id}", hit.content, source))
             return results
         finally:
             _ROUTE_STACK.reset(token)
