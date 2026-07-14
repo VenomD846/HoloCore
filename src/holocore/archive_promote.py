@@ -5,7 +5,7 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-from .archive import Archive
+from .archive import Archive, ArchiveConflictError
 
 SKIP = {".git", ".obsidian", ".holocore", "holocore-out", "graphify-out", "node_modules", "raw"}
 EXTENSIONS = {".md", ".txt", ".rst", ".html"}
@@ -33,7 +33,6 @@ def promote_sources(source: str | Path, destination: str | Path) -> dict[str, An
                 created.append(str(target))
             else:
                 skipped.append(str(target))
-        except Exception:
-            if (vault.vault / target).exists(): skipped.append(str(target))
-            else: conflicts.append(str(target))
+        except ArchiveConflictError:
+            skipped.append(str(target))
     return {"source": str(root), "destination": str(vault.vault), "created": created, "skipped": skipped, "conflicts": conflicts, "count": len(created), "one_way": True}
