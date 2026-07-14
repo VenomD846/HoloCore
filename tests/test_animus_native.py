@@ -66,6 +66,38 @@ def test_requires_declared_world_and_sector(tmp_path):
         animus.search("memory", world="demo", sector="missing")
 
 
+def test_rename_world_preserves_scoped_memory_and_provenance(tmp_path):
+    animus = store(tmp_path)
+    shard = animus.ingest(
+        "A retained memory shard.",
+        world="demo",
+        sector="debugging",
+        source_ref="session://rename",
+    )
+
+    assert animus.rename_world("demo", "Demo Project", "Demo Project") is True
+
+    assert animus.get_world("Demo Project").display_name == "Demo Project"
+    with pytest.raises(KeyError):
+        animus.get_world("demo")
+    renamed = animus.search("retained", world="Demo Project", sector="debugging")
+    assert [item.id for item in renamed] == [shard.id]
+    assert renamed[0].provenance[0].source_ref == "session://rename"
+
+
+def test_rename_world_merges_empty_legacy_scope_into_existing_world(tmp_path):
+    animus = Animus(tmp_path)
+    animus.create_world("legacy-hash", "Demo Project")
+    animus.create_sector("legacy-hash", "extra")
+    animus.create_world("Demo Project", "Demo Project")
+
+    assert animus.rename_world("legacy-hash", "Demo Project", "Demo Project") is True
+
+    assert animus.get_sector("Demo Project", "extra").display_name == "extra"
+    with pytest.raises(KeyError):
+        animus.get_world("legacy-hash")
+
+
 def test_native_module_has_no_external_engine_or_subprocess_imports():
     path = Path(__file__).parents[1] / "src" / "holocore" / "animus.py"
     tree = ast.parse(path.read_text(encoding="utf-8"))

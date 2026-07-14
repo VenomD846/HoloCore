@@ -12,7 +12,10 @@ from .animus import Animus
 from .animus_mining import AnimusMiner, MiningOptions
 
 
-def _tool(name, description, properties=None, required=None): return {"name": name, "description": description, "inputSchema": {"type": "object", "properties": properties or {}, "required": required or []}}
+def _tool(name, description, properties=None, required=None):
+    values = dict(properties or {})
+    values.setdefault("root", {"type": "string", "description": "Active World/project root for the single global HoloCore connection."})
+    return {"name": name, "description": description, "inputSchema": {"type": "object", "properties": values, "required": required or []}}
 TOOLS = [
     _tool("holocore_search", "Unified relevance-gated search", {"query": {"type": "string"}, "world": {"type": "string"}}, ["query"]),
     _tool("holocore_status", "World, Archive, Atlas and Animus status"),
@@ -45,6 +48,9 @@ TOOLS = [
     _tool("holocore_animus_timeline", "Read the active World's diary timeline", {"sector": {"type": "string"}, "limit": {"type": "integer"}}),
     _tool("holocore_animus_consolidate", "Merge duplicate diary entries within one scope", {"sector": {"type": "string"}}),
     _tool("holocore_animus_export", "Export scoped Animus diary records", {"sector": {"type": "string"}, "limit": {"type": "integer"}}),
+    _tool("holocore_animus_decks", "List bounded Decks in the active World"),
+    _tool("holocore_animus_signal", "Record a temporal Signal assertion", {"name": {"type": "string"}, "relation": {"type": "string"}, "value": {"type": "string"}, "kind": {"type": "string"}, "deck": {"type": "string"}}, ["name", "relation", "value"]),
+    _tool("holocore_animus_chronicle", "Read a Signal's temporal Chronicle", {"signal": {"type": "string"}, "deck": {"type": "string"}, "limit": {"type": "integer"}}),
 ]
 PROMPTS = [
     {
@@ -123,7 +129,29 @@ def call(engine: HoloCoreEngine, name: str, args: dict):
         if name == "holocore_animus_timeline": return animus.timeline(world=world, sector=sector, limit=int(args.get("limit", 100)))
         if name == "holocore_animus_consolidate": return animus.consolidate(world=world, sector=sector)
         if name == "holocore_animus_export": return animus.timeline(world=world, sector=sector, limit=int(args.get("limit", 1000)))
+        if name == "holocore_animus_decks": return [deck.__dict__ for deck in animus.decks(world=world)]
+        if name == "holocore_animus_signal": return animus.record_signal_chronicle(args["name"], args["relation"], args["value"], world=world, kind=args.get("kind", "concept"), room=args.get("deck"), source_ref="mcp").__dict__
+        if name == "holocore_animus_chronicle": return [event.__dict__ for event in animus.signal_chronicle(world=world, entity=args.get("signal"), room=args.get("deck"), limit=int(args.get("limit", 100))) ]
     raise ValueError(f"Unknown HoloCore tool: {name}")
+
+
+def _engine_for(args: dict, fallback: HoloCoreEngine) -> HoloCoreEngine:
+    requested = str(args.get("root") or "").strip()
+    if requested:
+        return HoloCoreEngine(Path(requested).expanduser().resolve())
+    world = str(args.get("world") or "").strip().casefold()
+    worlds = HomeManager().list_worlds().get("worlds", [])
+    if world:
+        match = next((item for item in worlds if world in {
+            str(item.get("id", "")).casefold(),
+            str(item.get("name", "")).casefold(),
+            str(item.get("root", "")).casefold(),
+        }), None)
+        if match:
+            return HoloCoreEngine(Path(str(match["root"])))
+    if len(worlds) == 1:
+        return HoloCoreEngine(Path(str(worlds[0]["root"])))
+    return fallback
 
 
 def main() -> int:
@@ -134,7 +162,9 @@ def main() -> int:
             request = json.loads(line); method = request.get("method"); params = request.get("params", {})
             if method == "initialize": result = {"protocolVersion": "2025-06-18", "capabilities": {"tools": {}, "prompts": {}}, "serverInfo": {"name": "holocore", "version": "0.5.0"}}
             elif method == "tools/list": result = {"tools": TOOLS}
-            elif method == "tools/call": result = {"content": [{"type": "text", "text": json.dumps(call(engine, params["name"], params.get("arguments", {})), ensure_ascii=False, default=str)}]}
+            elif method == "tools/call":
+                arguments = params.get("arguments", {})
+                result = {"content": [{"type": "text", "text": json.dumps(call(_engine_for(arguments, engine), params["name"], arguments), ensure_ascii=False, default=str)}]}
             elif method == "prompts/list": result = {"prompts": PROMPTS}
             elif method == "prompts/get": result = get_prompt(params["name"], params.get("arguments", {}))
             else: result = {}

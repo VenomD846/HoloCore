@@ -1,4 +1,4 @@
-"""One-way promotion of an existing curated vault into the Shared Archive."""
+"""One-way promotion of an existing curated folder into the Second Brain World."""
 
 from __future__ import annotations
 
@@ -17,9 +17,9 @@ def sync_archive_source(source: str | Path, home: Path | None = None) -> dict[st
     if home is None:
         from .home import HomeManager
         home = HomeManager().home
-    target_root = (Path(home).resolve() / "Archive" / "Shared" / "Second Brain").resolve()
+    target_root = (Path(home).resolve() / "Archive" / "Worlds" / "Second Brain" / "wiki").resolve()
     if target_root == source_path or source_path in target_root.parents:
-        raise ValueError("Archive source cannot be inside the HoloCore Shared Archive")
+        raise ValueError("Archive source cannot be inside the HoloCore Second Brain World")
     copied: list[str] = []
     skipped: list[str] = []
     conflicts: list[str] = []

@@ -18,15 +18,17 @@ from typing import Any, Iterable, Iterator, Mapping
 import unicodedata
 
 
-ATLAS_VERSION = "1"
+ATLAS_VERSION = "2"
 DEFAULT_AFFECTED_RELATIONS = frozenset(
     {"calls", "imports", "imports_from", "inherits", "references", "uses"}
 )
 _EXCLUDES = frozenset(
     {
-        ".git", ".hg", ".svn", ".holocore", ".mypy_cache", ".pytest_cache", ".ruff_cache",
-        ".tox", ".venv", "__pycache__", "build", "dist", "graphify-out", "holocore-out",
-        "node_modules", "venv",
+        ".agents", ".cache", ".claude", ".codex", ".cursor", ".gemini", ".git", ".hg",
+        ".holocore", ".mypy_cache", ".next", ".obsidian", ".opencode", ".pytest_cache", ".ruff_cache",
+        ".svn", ".tox", ".turbo", ".venv", ".vercel", "__pycache__", "build", "coverage",
+        "dist", "graphify", "graphify-out", "holocore-out", "Imported", "imported",
+        "node_modules", "out", "raw", "venv",
     }
 )
 
@@ -174,6 +176,8 @@ class Atlas:
         output: str | os.PathLike[str] | None = None,
         *,
         exclude: Iterable[str] = (),
+        runtime_output: str | os.PathLike[str] | None = None,
+        knowledge_roots: Mapping[str, str | os.PathLike[str]] | None = None,
     ) -> None:
         self.root = Path(root).expanduser().resolve()
         if output is None:
@@ -187,7 +191,12 @@ class Atlas:
         self.graph_path = destination if destination.is_absolute() else self.root / destination
         # Native runtime compatibility path; graph_path remains the public
         # node-link output contract used by structural tooling.
-        self.output = self.root / ".holocore" / "atlas.json"
+        self.output = Path(runtime_output).expanduser().resolve() if runtime_output else self.root / ".holocore" / "atlas.json"
+        self.knowledge_roots = {
+            _key(name): Path(path).expanduser().resolve()
+            for name, path in (knowledge_roots or {}).items()
+            if Path(path).expanduser().is_dir()
+        }
         self.exclude = _EXCLUDES | frozenset(exclude)
         self._graph: dict[str, Any] | None = None
 
@@ -518,6 +527,21 @@ class Atlas:
             except (OSError, ValueError):
                 continue
             result[relative] = {"content_hash": content_hash(raw), "size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
+        for name, knowledge_root in self.knowledge_roots.items():
+            for folder in (knowledge_root / "wiki", knowledge_root / "system"):
+                if not folder.is_dir():
+                    continue
+                for path in sorted(folder.rglob("*.md")):
+                    try:
+                        raw, stat = path.read_bytes(), path.stat()
+                        relative = f".knowledge/{name}/{path.relative_to(knowledge_root).as_posix()}"
+                    except (OSError, ValueError):
+                        continue
+                    result[relative] = {
+                        "content_hash": content_hash(raw),
+                        "size": stat.st_size,
+                        "mtime_ns": stat.st_mtime_ns,
+                    }
         return dict(sorted(result.items()))
 
     def _files(self) -> Iterator[Path]:
@@ -557,8 +581,14 @@ class Atlas:
                 if name not in self.exclude and path.is_file():
                     yield path
 
+    def _source_path(self, relative: str) -> Path:
+        parts = PurePosixPath(relative).parts
+        if len(parts) >= 3 and parts[0] == ".knowledge" and parts[1] in self.knowledge_roots:
+            return self.knowledge_roots[parts[1]] / PurePosixPath(*parts[2:])
+        return self.root / PurePosixPath(relative)
+
     def _extract(self, relative: str, digest: str) -> dict[str, Any]:
-        path = self.root / PurePosixPath(relative)
+        path = self._source_path(relative)
         python = path.suffix.casefold() == ".py"
         language = {".js": "javascript", ".jsx": "javascript", ".ts": "typescript", ".tsx": "typescript", ".json": "json", ".yaml": "yaml", ".yml": "yaml", ".sql": "sql", ".md": "markdown", ".markdown": "markdown"}.get(path.suffix.casefold(), "generic")
         file_node = {
@@ -609,6 +639,15 @@ class Atlas:
             return {"language": str(file_node.get("language", "generic")), "module": "", "fragment": fragment}
         if b"\0" in raw[:8192]:
             file_node["binary"] = True
+            file_node["kind"] = file_node["type"] = "media"
+            file_node["file_type"] = "media"
+            # Graphify-style media coverage: a neighbouring Markdown sidecar
+            # becomes explicit evidence for the media node.
+            sidecar = path.with_suffix(".md")
+            if sidecar.is_file():
+                sidecar_rel = sidecar.relative_to(self.root).as_posix() if sidecar.is_relative_to(self.root) else ""
+                if sidecar_rel:
+                    fragment["references"].append({"source": file_node["id"], "target": sidecar_rel, "relation": "described_by", "line": 1})
             return {"language": str(file_node.get("language", "generic")), "module": "", "fragment": fragment}
         text = raw.decode("utf-8", errors="replace")
         language = str(file_node.get("language", "generic"))
@@ -634,11 +673,30 @@ class Atlas:
             file_node["line_count"] = text.count("\n") + (1 if text else 0)
             return {"language": language, "module": "", "fragment": fragment}
         file_node["language"] = "markdown"
+        title = next(
+            (
+                match.group(1).strip()
+                for line in text.splitlines()
+                if (match := re.match(r"^#\s+(.+?)\s*$", line))
+            ),
+            "",
+        )
+        if title:
+            file_node["label"] = title
+        elif relative.startswith(".knowledge/") and relative.endswith("/system/index.md"):
+            file_node["label"] = "World Archive Index"
+        is_knowledge = relative.startswith(".knowledge/")
+        if is_knowledge:
+            file_node["kind"] = file_node["type"] = "archive_entry"
+            file_node["file_type"] = "knowledge"
+            file_node["semantic"] = True
         occurrences: dict[str, int] = {}
+        current_section = ""
         for line_number, line in enumerate(text.splitlines(), 1):
             heading = re.match(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$", line)
             if heading:
                 label = heading.group(1).strip()
+                current_section = label.casefold()
                 anchor = re.sub(r"[^\w]+", "-", label.casefold()).strip("-") or "section"
                 occurrences[anchor] = occurrences.get(anchor, 0) + 1
                 node_id = f"section:{_key(relative)}:{_key(anchor)}:{occurrences[anchor]}"
@@ -648,6 +706,21 @@ class Atlas:
                     "source_location": f"L{line_number}", "content_hash": digest, "confidence": "EXTRACTED",
                 })
                 fragment["edges"].append(_edge(file_node["id"], node_id, "contains", relative, line_number))
+            bullet = re.match(r"^\s*[-*]\s+(.+?)\s*$", line)
+            if is_knowledge and bullet and current_section:
+                label = re.sub(r"\s+", " ", bullet.group(1)).strip()
+                if 2 <= len(label) <= 240:
+                    kind = "concept" if current_section in {"entities", "summary", "concepts", "topics"} else (current_section.rstrip("s") or "concept")
+                    stable = _key(label)[:96] if kind == "concept" else hashlib.sha256(label.casefold().encode("utf-8")).hexdigest()[:20]
+                    semantic_id = f"{kind}:{stable}"
+                    fragment["nodes"].append({
+                        "id": semantic_id, "label": label, "kind": kind, "type": kind,
+                        "file_type": "knowledge", "language": "semantic", "source_file": relative,
+                        "source_location": f"L{line_number}", "content_hash": digest,
+                        "confidence": "EXTRACTED", "semantic": True,
+                    })
+                    relation = "mentions" if kind == "concept" else "records"
+                    fragment["edges"].append(_edge(file_node["id"], semantic_id, relation, relative, line_number))
             for link in re.finditer(r"\[[^\]]+\]\(([^)#]+)(?:#[^)]+)?\)", line):
                 target = link.group(1).strip()
                 if "://" not in target and not target.startswith(("mailto:", "#")):
@@ -677,10 +750,22 @@ class Atlas:
             target = self._resolve_reference(relative, str(reference["target"]), records, module_files, symbols, terminals)
             if target and str(reference["source"]) in nodes and target in nodes:
                 links.append(_edge(str(reference["source"]), target, str(reference["relation"]), relative, int(reference.get("line", 1))))
-        unique = {
-            (str(link["source"]), str(link["target"]), str(link.get("relation", "")), str(link.get("source_file", "")), str(link.get("source_location", ""))): link
-            for link in links
-        }
+        unique: dict[tuple[str, str, str], dict[str, Any]] = {}
+        for link in links:
+            source = str(link["source"])
+            target = str(link["target"])
+            if source == target:
+                continue
+            key = (source, target, str(link.get("relation", "")))
+            evidence = {
+                "source_file": str(link.get("source_file", "")),
+                "source_location": str(link.get("source_location", "")),
+            }
+            if key not in unique:
+                unique[key] = {**link, "occurrences": [evidence], "occurrence_count": 1}
+            elif evidence not in unique[key]["occurrences"]:
+                unique[key]["occurrences"].append(evidence)
+                unique[key]["occurrence_count"] = len(unique[key]["occurrences"])
         return [nodes[key] for key in sorted(nodes)], [unique[key] for key in sorted(unique)]
 
     def _resolve_reference(
@@ -713,9 +798,10 @@ class Atlas:
                 prefix = prefix.rsplit(".", 1)[0]
                 if prefix in module_files:
                     return module_files[prefix]
-        terminal = target.rsplit(".", 1)[-1]
-        if len(terminals.get(terminal, [])) == 1:
-            return terminals[terminal][0]
+        if "." not in target:
+            terminal = target.rsplit(".", 1)[-1]
+            if len(terminals.get(terminal, [])) == 1:
+                return terminals[terminal][0]
         # Relative Markdown/file reference.
         candidate_path = (PurePosixPath(relative).parent / PurePosixPath(target)).as_posix()
         normalized = os.path.normpath(candidate_path).replace("\\", "/")

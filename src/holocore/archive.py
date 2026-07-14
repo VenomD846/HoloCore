@@ -139,11 +139,12 @@ class Archive:
         self.max_file_bytes = max(1, int(max_file_bytes))
         self.read_cap = max(1, int(read_cap))
 
-    def init_vault(self) -> dict[str, Any]:
+    def init_vault(self, *, scoped: bool = False, container: bool = False) -> dict[str, Any]:
         """Initialize a minimal vault without replacing existing user files."""
         created: list[str] = []
         self.vault.mkdir(parents=True, exist_ok=True)
-        for folder in ("Inbox", "wiki", "system"):
+        folders = ("system",) if container else (("wiki", "system") if scoped else ("Inbox", "wiki", "system"))
+        for folder in folders:
             path = self.vault / folder
             if not path.exists():
                 path.mkdir()
@@ -166,7 +167,7 @@ class Archive:
             )
             created.append("system/index.md")
         guide = self.vault / "README.md"
-        if not guide.exists():
+        if not scoped and not guide.exists():
             today = date.today().isoformat()
             guide.write_text(
                 _render(
@@ -179,9 +180,8 @@ class Archive:
                     },
                     "## For future Claude\nThis visible folder is the HoloCore Archive and can be opened directly as an Obsidian vault.\n\n"
                     "# HoloCore Archive\n\n"
-                    "- `Inbox/` holds notes waiting to be refined.\n"
-                    "- `wiki/` holds polished, verified Archive Entries.\n"
-                    "- `system/index.md` is the starting map.\n\n"
+                    + ("- `Worlds/<project name>/wiki/` holds project knowledge.\n- `Shared/` holds cross-project knowledge.\n" if container else "- `Inbox/` holds notes waiting to be refined.\n- `wiki/` holds polished, verified Archive Entries.\n")
+                    + "- `system/index.md` is the starting map.\n\n"
                     "Obsidian is optional. HoloCore and connected AI clients read these Markdown files directly.\n",
                 ),
                 encoding="utf-8",
@@ -534,17 +534,14 @@ def vault_health(vault: str | os.PathLike[str], **bounds: Any) -> dict[str, Any]
 
 
 class ArchiveView:
-    """One World Archive plus the shared portion of a HoloCore Home vault."""
+    """The active World's view inside the single HoloCore Archive."""
 
-    def __init__(self, world_vault: str | os.PathLike[str], shared_vault: str | os.PathLike[str] | None = None):
+    def __init__(self, world_vault: str | os.PathLike[str]):
         self.world = Archive(world_vault)
-        self.shared = Archive(shared_vault) if shared_vault else None
         self.vault = self.world.vault
 
     def init_vault(self) -> dict[str, Any]:
-        report = {"world": self.world.init_vault(), "initialized": True}
-        if self.shared:
-            report["shared"] = self.shared.init_vault()
+        report = {"world": self.world.init_vault(scoped=True), "initialized": True}
         report["vault"] = str(self.world.vault)
         report["created"] = report["world"].get("created", [])
         return report
@@ -555,22 +552,10 @@ class ArchiveView:
         hits = self.world.search(query, limit)
         for hit in hits:
             hit["archive_scope"] = "world"
-        if self.shared:
-            shared_hits = self.shared.search(query, limit)
-            for hit in shared_hits:
-                hit["archive_scope"] = "shared"
-                hit["path"] = "shared/" + hit["path"]
-                hit["source_ref"] = hit["path"]
-            hits.extend(shared_hits)
         return hits[:limit]
 
     def _target_archive(self, path: str | os.PathLike[str]) -> tuple[Archive, str]:
-        value = Path(path).as_posix()
-        if value.startswith("shared/"):
-            if not self.shared:
-                raise ArchiveError("shared Archive is not configured")
-            return self.shared, value.removeprefix("shared/")
-        return self.world, value
+        return self.world, Path(path).as_posix()
 
     def read(self, path):
         archive, relative = self._target_archive(path)
@@ -587,8 +572,5 @@ class ArchiveView:
     def health(self) -> dict[str, Any]:
         world = self.world.health()
         result = {"world": world, "healthy": world["healthy"]}
-        if self.shared:
-            result["shared"] = self.shared.health()
-            result["healthy"] = result["healthy"] and result["shared"]["healthy"]
         result["vault"] = str(self.world.vault)
         return result

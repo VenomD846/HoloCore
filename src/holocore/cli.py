@@ -58,9 +58,9 @@ Your data
   Immutable raw sources     {paths['raw_sources']}
 
 AI access
-  Claude Code: restart in this World, run /mcp once, then /holocore-search (capture installed)
-  Codex: restart/reopen this World, review /hooks once, then invoke $holocore-search (capture installed)
-  Other MCP clients: use the generated project-local MCP configuration
+  One shared connection bundle  {paths['home']}/Connections
+  MCP tools accept the active World root, so clients connect once at user scope.
+  Project-local connection, skill, hook, and policy copies are no longer generated.
 
 Obsidian is optional. To use it, open this folder as a vault:
   {paths['archive']}
@@ -73,16 +73,16 @@ def _format_connect(value: dict) -> str:
     changed = len(value.get("created", [])) + len(value.get("updated", []))
     warnings = value.get("warnings", [])
     suffix = "\n\nWarnings:\n  " + "\n  ".join(warnings) if warnings else ""
-    return f"""HoloCore AI connections are installed ({changed} files created or repaired).
+    return f"""HoloCore's shared AI connection bundle is ready ({changed} files created or repaired).
 
 Claude Code
-  Config: {value['paths']['claude_mcp']}
-  Restart Claude, run /mcp to approve/check the server, then /holocore-search.
+  Shared config: {value['paths']['claude_mcp']}
+  Link this once at user scope, then pass the active World root to HoloCore tools.
 
 Codex
-  Config: {value['paths']['codex_mcp']}
+  Shared config: {value['paths']['codex_mcp']}
   Skills: {value['paths']['codex_skills']}
-  Restart/reopen the World, then invoke $holocore-search.{suffix}"""
+  Link this once at user scope, then invoke $holocore-search.{suffix}"""
 
 
 def _format_status(value: dict) -> str:
@@ -136,6 +136,9 @@ def main() -> int:
     sub.add_parser("paths", help="Show every HoloCore data and integration location")
     sub.add_parser("open-archive", help="Open the visible Archive folder")
     sub.add_parser("status")
+    console = sub.add_parser("console", help="Open the local HoloCore browser Console")
+    console.add_argument("--port", type=int, default=0, help="Local port (0 chooses a free port)")
+    console.add_argument("--no-open", action="store_true", help="Print the URL without opening a browser")
     sub.add_parser("doctor")
     home_command = sub.add_parser("home", help="Show or select the shared HoloCore Home")
     home_command.add_argument("path", nargs="?")
@@ -148,6 +151,8 @@ def main() -> int:
     update.add_argument("--no-sync", action="store_true", help="Only update the CLI; skip the potentially lengthy World/Atlas reconciliation")
     sub.add_parser("install-check", help="Show installed version and safe upgrade/uninstall commands")
     sub.add_parser("uninstall", help="Uninstall the HoloCore CLI while preserving project and Home data")
+    cleanup = sub.add_parser("cleanup", help="Safely remove legacy HoloCore files from this project")
+    cleanup.add_argument("--apply", action="store_true", help="Actually remove verified legacy artifacts")
     search = sub.add_parser("search"); search.add_argument("query"); search.add_argument("--world")
     sub.add_parser("atlas-refresh")
     sub.add_parser("atlas-html"); sub.add_parser("atlas-view")
@@ -166,6 +171,9 @@ def main() -> int:
     timeline = sub.add_parser("timeline"); timeline.add_argument("--sector", default=None); timeline.add_argument("--limit", type=int, default=100)
     consolidate = sub.add_parser("consolidate"); consolidate.add_argument("--sector", default=None)
     export = sub.add_parser("animus-export"); export.add_argument("--sector", default=None); export.add_argument("--limit", type=int, default=1000)
+    decks = sub.add_parser("animus-decks", aliases=["animus-rooms"]); decks.add_argument("--world", default=None)
+    signal = sub.add_parser("animus-signal", aliases=["animus-entity"]); signal.add_argument("name"); signal.add_argument("relation"); signal.add_argument("value"); signal.add_argument("--kind", default="concept"); signal.add_argument("--deck", "--room", dest="room"); signal.add_argument("--source", default="cli")
+    chronicle = sub.add_parser("animus-chronicle", aliases=["animus-entity-timeline"]); chronicle.add_argument("--signal", "--entity", dest="entity"); chronicle.add_argument("--deck", "--room", dest="room"); chronicle.add_argument("--limit", type=int, default=100)
     remember = sub.add_parser("remember"); remember.add_argument("content"); remember.add_argument("--sector", default="general"); remember.add_argument("--source", default="")
     recall = sub.add_parser("recall"); recall.add_argument("query"); recall.add_argument("--sector")
     ingest = sub.add_parser("ingest-chat"); ingest.add_argument("file"); ingest.add_argument("--sector", default="conversations"); ingest.add_argument("--instructions", default="")
@@ -176,15 +184,25 @@ def main() -> int:
     sub.add_parser("archive-init")
     archive_search = sub.add_parser("archive-search"); archive_search.add_argument("query")
     archive_create = sub.add_parser("archive-create"); archive_create.add_argument("path"); archive_create.add_argument("content")
-    archive_source = sub.add_parser("archive-source-sync", help="One-way sync curated Markdown into the Shared Archive")
+    archive_source = sub.add_parser("archive-source-sync", help="One-way sync curated Markdown into the Second Brain World")
     archive_source.add_argument("--source", required=True, help="Existing curated Markdown directory")
-    promote = sub.add_parser("archive-promote", help="Generate a project wiki and sync it to the Shared Archive")
+    promote = sub.add_parser("archive-promote", help="Generate locally reasoned entries in this World's wiki")
     promote.add_argument("--source", required=True, help="Project or documentation directory to promote")
-    promote.add_argument("--no-sync", action="store_true", help="Generate only the project wiki; do not sync Shared Archive")
+    promote.add_argument("--scope", choices=("docs", "all"), default="docs", help="Promote documentation only (default) or all supported text")
+    promote.add_argument("--dry-run", action="store_true", help="Plan changes without writing files")
+    promote.add_argument("--no-summarize", action="store_true", help="Skip local-AI reasoning and preserve a deterministic excerpt")
     args = parser.parse_args()
     root = Path(getattr(args, "path", None) or args.root).resolve() if args.command in {"setup", "init", "connect"} else Path(args.root).resolve()
 
-    if args.command == "paths":
+    if args.command == "cleanup":
+        from .cleanup import cleanup_legacy
+        value = cleanup_legacy(root, apply=args.apply)
+        print(json.dumps(value, indent=2, default=str))
+        return 0
+    if args.command == "console":
+        from .console import serve_console
+        return serve_console(root, port=args.port, open_browser=not args.no_open)
+    elif args.command == "paths":
         value = world_paths(root, Config.load(root=root))
         output = json.dumps(value, indent=2) if args.json else format_paths(value)
         print(output)
@@ -195,7 +213,7 @@ def main() -> int:
         value = manager.select_home(selected_path) if selected_path else {
             "home": str(manager.home), "archive": str(manager.archive), "worlds_file": str(manager.worlds_path), "selected": manager.pointer_path.exists()
         }
-        print(json.dumps(value, indent=2, default=str) if args.json else f"HoloCore Home: {value['home']}\nShared Archive: {Path(value['home']) / 'Archive'}\nWorld registry: {Path(value['home']) / 'worlds.json'}")
+        print(json.dumps(value, indent=2, default=str) if args.json else f"HoloCore Home: {value['home']}\nObsidian Archive: {Path(value['home']) / 'Archive'}\nWorld registry: {Path(value['home']) / 'worlds.json'}")
         return 0
     if args.command == "worlds":
         value = HomeManager().list_worlds()
@@ -268,11 +286,14 @@ def main() -> int:
     elif args.command == "atlas-export":
         from .atlas_exports import export_atlas
         value = export_atlas(engine.router.atlas, args.output, args.formats)
-    elif args.command in {"mine", "animus-sync", "animus-checkpoint", "diary", "timeline", "consolidate", "animus-export"}:
+    elif args.command in {"mine", "animus-sync", "animus-checkpoint", "diary", "timeline", "consolidate", "animus-export", "animus-decks", "animus-rooms", "animus-signal", "animus-entity", "animus-chronicle", "animus-entity-timeline"}:
         config = Config.load(root=root); animus = Animus(config.animus_path); world = config.world_id or root.name
         animus.create_world(world, root.name, {"root": str(root)})
         if getattr(args, "sector", None): animus.create_sector(world, args.sector)
-        if args.command in {"mine", "animus-sync"}:
+        if args.command in {"animus-decks", "animus-rooms"}: value = [deck.__dict__ for deck in animus.decks(world=world)]
+        elif args.command in {"animus-signal", "animus-entity"}: value = animus.record_signal_chronicle(args.name, args.relation, args.value, world=world, kind=args.kind, room=args.room, source_ref=args.source).__dict__
+        elif args.command in {"animus-chronicle", "animus-entity-timeline"}: value = [event.__dict__ for event in animus.signal_chronicle(world=world, entity=args.entity, room=args.room, limit=args.limit)]
+        elif args.command in {"mine", "animus-sync"}:
             path = Path(args.path if args.command == "mine" else root).resolve()
             value = AnimusMiner(animus).mine(MiningOptions(mode=args.mode, world=world, sector=args.sector, root=path, ignore=tuple(args.ignore) or MiningOptions().ignore))
         elif args.command == "animus-checkpoint":
@@ -280,14 +301,30 @@ def main() -> int:
         elif args.command == "diary": value = animus.record_diary(args.content, world=world, sector=args.sector, title=args.title, kind=args.kind, source_ref=args.source)
         elif args.command == "timeline": value = animus.timeline(world=world, sector=args.sector, limit=args.limit)
         elif args.command == "consolidate": value = animus.consolidate(world=world, sector=args.sector)
-        else: value = [{"id": row.id, "world_id": row.world_id, "sector_id": row.sector_id, "occurred_at": row.occurred_at, "title": row.title, "content": row.content, "kind": row.kind, "metadata": dict(row.metadata), "provenance": [p.__dict__ for p in row.provenance]} for row in animus.timeline(world=world, sector=args.sector, limit=args.limit)]
+        else:
+            diary = [{"id": row.id, "world_id": row.world_id, "sector_id": row.sector_id,
+                      "occurred_at": row.occurred_at, "title": row.title, "content": row.content,
+                      "kind": row.kind, "metadata": dict(row.metadata),
+                      "provenance": [p.__dict__ for p in row.provenance]}
+                     for row in animus.timeline(world=world, sector=args.sector, limit=args.limit)]
+            # Export both the episodic timeline and distilled memory so an AI
+            # client can consume one scoped Animus payload.
+            shards = [{"id": row.id, "world_id": row.world_id, "sector_id": row.sector_id,
+                       "content": row.content, "route_hint": row.route_hint,
+                       "metadata": dict(row.metadata), "created_at": row.created_at,
+                       "updated_at": row.updated_at, "kind": "memory_shard"}
+                      for row in animus.shards(world=world, sector=args.sector)][-args.limit:]
+            value = diary + shards
     elif args.command == "remember": value = engine.remember(args.content, args.sector, args.source)
     elif args.command == "recall":
         engine.router.ensure_memory_scope()
         value = [r.__dict__ for r in engine.router.animus.search(args.query, world=engine.router.world_id, sector=args.sector)]
     elif args.command == "ingest-chat":
-        payload = json.loads(Path(args.file).read_text(encoding="utf-8")); messages = payload.get("messages", payload) if isinstance(payload, dict) else payload
-        value = engine.ingest_chat(messages, sector=args.sector, source=str(Path(args.file).resolve()), custom_instructions=args.instructions)
+        from .conversation_import import ConversationImporter
+        imported = ConversationImporter().import_file(args.file)
+        value = engine.ingest_chat(imported["messages"], sector=args.sector, source=str(Path(args.file).resolve()), custom_instructions=args.instructions)
+        value["provider"] = imported["provider"]
+        value["message_count"] = imported["message_count"]
     elif args.command == "ingest": value = engine.ingest_source(args.source, title=args.title)
     elif args.command == "inbox-sync": value = engine.sync_inbox()
     elif args.command == "archive-init": value = engine.router.archive.init_vault()
@@ -295,10 +332,16 @@ def main() -> int:
     elif args.command == "archive-create": value = engine.router.archive.create(args.path, args.content)
     elif args.command == "archive-source-sync": value = sync_archive_source(args.source, HomeManager().home)
     elif args.command == "archive-promote":
-        config = Config.load(root=root); manager = HomeManager(config.home)
-        value = promote_sources(args.source, root)
-        if not args.no_sync:
-            value["shared_sync"] = sync_archive_source(root / "wiki", manager.home)
+        config = Config.load(root=root)
+        value = promote_sources(
+            args.source,
+            config.vault,
+            scope=args.scope,
+            summarize=not args.no_summarize,
+            dry_run=args.dry_run,
+            world=config.world_id or root.name,
+            llm=config.llm,
+        )
     else: raise AssertionError(args.command)
 
     if args.json:

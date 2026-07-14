@@ -28,7 +28,7 @@ def test_native_refresh_writes_node_link_graph_and_queries(tmp_path):
     assert graph["graph"]["generator"] == "holocore-atlas"
     assert graph["graph"]["extracted_files"] == 3
     assert json.loads(atlas.graph_path.read_text(encoding="utf-8"))["links"]
-    assert any(n["label"] == "README.md" and n["file_type"] == "generic" for n in graph["nodes"])
+    assert any(n["label"] == "Example" and n["file_type"] == "generic" for n in graph["nodes"])
     assert len(content_hash(root / "util.py")) == 64
 
     assert atlas.search("Service")[0]["label"] == "Service"
@@ -66,6 +66,36 @@ def test_syntax_error_keeps_file_signal(tmp_path):
     graph = Atlas(tmp_path).refresh()
     node = next(n for n in graph["nodes"] if n["label"] == "broken.py")
     assert "parse_error" in node
+
+
+def test_refresh_excludes_generated_and_ai_client_directories(tmp_path):
+    (tmp_path / "app.py").write_text("def run():\n    return True\n", encoding="utf-8")
+    for directory in (".next", ".obsidian", "node_modules", ".agents", ".claude", "graphify", "raw", "Imported", "holocore-out"):
+        folder = tmp_path / directory
+        folder.mkdir()
+        (folder / "noise.js").write_text("export const noise = true;\n", encoding="utf-8")
+
+    graph = Atlas(tmp_path).refresh()
+
+    sources = {str(node.get("source_file")) for node in graph["nodes"]}
+    assert sources == {"app.py"}
+
+
+def test_archive_entries_are_semantic_signals_and_self_edges_are_removed(tmp_path):
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "app.py").write_text("from pathlib import Path\n\ndef run():\n    return Path('.')\n", encoding="utf-8")
+    archive = tmp_path / "Archive"
+    (archive / "wiki").mkdir(parents=True)
+    (archive / "wiki" / "opaque-hash.md").write_text("# Parking Revenue Reconciliation\n\n## Decisions\n- Use invoice date.\n\n## Entities\n- Parking Revenue\n", encoding="utf-8")
+
+    graph = Atlas(root, knowledge_roots={"archive": archive}).refresh()
+
+    assert any(node["label"] == "Parking Revenue Reconciliation" and node["kind"] == "archive_entry" for node in graph["nodes"])
+    assert any(node["label"] == "Parking Revenue" and node["kind"] == "concept" for node in graph["nodes"])
+    assert any(node["label"] == "Use invoice date." and node["kind"] == "decision" for node in graph["nodes"])
+    assert all(link["source"] != link["target"] for link in graph["links"])
+    assert len({(link["source"], link["target"], link["relation"]) for link in graph["links"]}) == len(graph["links"])
 
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="Git is not installed")

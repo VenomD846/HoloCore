@@ -1,16 +1,16 @@
-"""Explicit, conflict-aware promotion of verified World notes to Shared Archive."""
+"""Explicit, conflict-aware promotion of verified notes into a World wiki."""
 from __future__ import annotations
 import hashlib
 from pathlib import Path
 from typing import Any
 
 
-def promote_entry(source: str | Path, shared_archive: str | Path, *, destination: str | None = None, overwrite: bool = False) -> dict[str, Any]:
-    source_path, shared = Path(source).resolve(), Path(shared_archive).resolve()
+def promote_entry(source: str | Path, world_archive: str | Path, *, destination: str | None = None, overwrite: bool = False) -> dict[str, Any]:
+    source_path, archive = Path(source).resolve(), Path(world_archive).resolve()
     if not source_path.is_file(): raise FileNotFoundError(source_path)
     content = source_path.read_text(encoding="utf-8")
-    relative = destination or f"wiki/shared/{source_path.stem}.md"
-    target = shared / relative
+    relative = destination or f"wiki/{source_path.stem}.md"
+    target = archive / relative
     digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
     existed = target.exists()
     if existed:

@@ -16,12 +16,14 @@ def test_new_application_combines_wiki_graph_memory_git_and_ai_links(
     installed = engine.initialize(git=True)
     assert installed["git"] in {"created", "existing"}
     assert installed["home"] == str(isolated_holocore_home)
-    assert installed["paths"]["archive"] == str(isolated_holocore_home / "Archive")
+    assert installed["paths"]["archive"] == str(isolated_holocore_home)
     assert installed["paths"]["world_archive"].startswith(
         str(isolated_holocore_home / "Archive" / "Worlds")
     )
-    for relative in ("AGENTS.md", "CLAUDE.md", "GEMINI.md", "HOLOCORE.md", ".cursor/mcp.json", "opencode.json"):
-        assert (world / relative).exists()
+    assert {path.name for path in world.iterdir()} == {".git"}
+    connections = isolated_holocore_home / "Connections"
+    for relative in ("policy.md", ".cursor/mcp.json", "opencode.json"):
+        assert (connections / relative).exists()
 
     engine.router.archive.init()
     engine.router.archive.create("wiki/decision.md", "# Native decision\n\n## For future Claude\nHoloCore owns one engine and no legacy runtime dependency.")
@@ -48,7 +50,7 @@ def test_new_application_combines_wiki_graph_memory_git_and_ai_links(
     assert "search" in {prompt["name"] for prompt in PROMPTS}
     assert "holocore search" in get_prompt("search", {"arguments": "architecture"})["messages"][0]["content"]["text"]
 
-    mcp = json.loads((world / ".mcp.json").read_text(encoding="utf-8"))
+    mcp = json.loads((connections / ".mcp.json").read_text(encoding="utf-8"))
     assert mcp["mcpServers"]["holocore"]["args"] == ["-m", "holocore.mcp_server"]
 
     # Production package contains only src/holocore; old source trees are not runtime imports.

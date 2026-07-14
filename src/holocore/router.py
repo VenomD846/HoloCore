@@ -44,10 +44,13 @@ class Router:
     def __init__(self, root: Path, config: Config | None = None):
         self.root = root.resolve()
         self.config = config or Config.load(root=self.root)
-        self.archive = ArchiveView(self.config.vault, self.config.shared_archive)
-        # Keep Graphify-compatible public output while retaining Atlas's
-        # private `.holocore/atlas.json` compatibility mirror.
-        self.atlas = Atlas(self.root)
+        self.archive = ArchiveView(self.config.vault)
+        self.atlas = Atlas(
+            self.root,
+            output=self.config.atlas_graph_path,
+            runtime_output=self.config.atlas_path,
+            knowledge_roots={"archive": self.config.vault},
+        )
         self.animus = Animus(self.config.animus_path)
         embedding = (self.config.llm or {}).get("embedding") if self.config.llm else None
         self.retriever = AnimusRetriever(self.animus, OpenAICompatibleEmbedder(str(embedding["base_url"]), str(embedding["model"])) if isinstance(embedding, dict) and embedding.get("base_url") and embedding.get("model") else None)

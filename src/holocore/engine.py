@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import Counter
 from datetime import date
 from pathlib import Path
 
@@ -35,6 +36,9 @@ class HoloCoreEngine:
         installation = self.initialize(git=git, platforms=platforms, home=home)
         from .lifecycle import installation_check
         atlas = self.refresh()
+        overview = self._ensure_project_overview()
+        if overview.get("changed"):
+            atlas = self.refresh()
         html = str(atlas["html"])
         return {
             "ready": True,
@@ -42,10 +46,101 @@ class HoloCoreEngine:
             "installation": installation,
             "installation_check": installation_check(),
             "atlas": atlas,
+            "project_wiki": overview,
             "atlas_html": html,
             "paths": world_paths(self.root, self.router.config),
             "next_steps": installation["next_steps"],
         }
+
+    def _ensure_project_overview(self) -> dict:
+        """Maintain one useful project wiki from verified Atlas structure."""
+        graph = json.loads(self.router.atlas.graph_path.read_text(encoding="utf-8"))
+        nodes = [
+            node for node in graph.get("nodes", [])
+            if not str(node.get("source_file") or "").endswith("/wiki/project-overview.md")
+        ]
+        files = [node for node in nodes if node.get("kind") == "file"]
+        languages = Counter(str(node.get("language") or "other") for node in files)
+        areas = Counter(
+            str(node.get("source_file") or "root").replace("\\", "/").split("/", 1)[0]
+            for node in files
+        )
+        symbols = []
+        for node in nodes:
+            if node.get("kind") not in {"class", "function", "component"}:
+                continue
+            label = str(node.get("label") or "").strip()
+            if label and label not in symbols:
+                symbols.append(label)
+            if len(symbols) == 15:
+                break
+        language_text = ", ".join(f"{name} ({count})" for name, count in languages.most_common(6)) or "none"
+        area_text = ", ".join(f"{name} ({count})" for name, count in areas.most_common(8)) or "root"
+        evidence = (
+            f"{self.root.name} is a project with {len(files)} indexed source files and {len(nodes)} mapped signals. "
+            f"Its main source areas are {area_text}. Languages and document types are {language_text}. "
+            f"Representative named symbols are {', '.join(symbols) or 'not yet available'}."
+        )
+        extraction = MemoryExtraction.from_mapping(
+            provider_from_config(self.router.config.llm or {}).extract(
+                [{"role": "user", "content": evidence}],
+                instructions="Write a concise project overview using only the supplied Atlas evidence.",
+            )
+        )
+        marker = "<!-- holocore:managed-project-overview -->"
+        body = "\n".join(
+            [
+                marker,
+                "## For future Claude",
+                "Use this overview for orientation, then inspect Atlas evidence and exact source files.",
+                "",
+                f"# {self.root.name} Project Overview",
+                "",
+                "## Summary",
+                "",
+                extraction.summary or evidence,
+                "",
+                "## Main Areas",
+                "",
+                *[f"- {name}: {count} indexed files" for name, count in areas.most_common(8)],
+                "",
+                "## Languages and Document Types",
+                "",
+                *[f"- {name}: {count}" for name, count in languages.most_common(8)],
+                "",
+                "## Representative Symbols",
+                "",
+                *([f"- {label}" for label in symbols] or ["- No named symbols extracted yet."]),
+                "",
+                "## Provenance",
+                "",
+                f"- Atlas: `{self.router.atlas.graph_path}`",
+                f"- Files: {len(files)}",
+                f"- Signals: {len(nodes)}",
+            ]
+        )
+        relative = "wiki/project-overview.md"
+        target = self.router.config.vault / relative
+        archive = self.router.archive.world
+        if target.exists():
+            existing = target.read_text(encoding="utf-8-sig")
+            if marker not in existing:
+                return {"changed": False, "path": str(target), "reason": "user-owned overview preserved"}
+            existing_body = existing.split("---", 2)[-1].strip()
+            if existing_body == body.strip():
+                return {"changed": False, "path": str(target), "reason": "overview is current"}
+            report = archive.update(relative, body=body, expected_content=existing)
+            return {"changed": True, "path": str(target), **report}
+        report = archive.create(
+            relative,
+            body,
+            frontmatter={
+                "type": "project-overview",
+                "tags": ["project-overview", "wiki", "atlas"],
+                "provenance": {"system": "holocore", "operation": "atlas-project-overview"},
+            },
+        )
+        return {"changed": True, "path": str(target), **report}
     def paths(self) -> dict[str, str]:
         return world_paths(self.root, self.router.config)
     def _atlas_html_paths(self) -> list[Path]:
@@ -53,7 +148,6 @@ class HoloCoreEngine:
         return list(dict.fromkeys((
             graph.parent / "atlas.html",
             graph.with_suffix(".html"),
-            self.router.config.atlas_path.with_suffix(".html"),
         )))
     def _write_atlas_views(self) -> list[Path]:
         from .atlas_html import generate_atlas_views
@@ -92,7 +186,6 @@ class HoloCoreEngine:
             path for path in (
                 self.router.config.state_dir,
                 self.router.config.vault,
-                self.router.config.shared_archive,
             ) if path is not None
         )
         readiness = {"ready": all(path.is_dir() for path in required), "missing": [str(path) for path in required if not path.is_dir()]}
@@ -229,7 +322,7 @@ class HoloCoreEngine:
                 continue
             title = next((line[2:].strip() for line in text.splitlines() if line.startswith("# ")), path.stem)
             entries.append((title, path.relative_to(self.router.config.vault).as_posix()))
-        target = self.root / "HOLOCORE-SOURCES.md"
+        target = self.router.config.vault / "system" / "source-map.md"
         marker = "<!-- holocore:managed-source-map -->"
         if not entries and not target.exists():
             return {"updated": False, "path": str(target), "entries": 0}
@@ -249,7 +342,7 @@ class HoloCoreEngine:
         return {"updated": True, "path": str(target), "entries": len(entries)}
 
     def ingest_source(self, source: str | Path, *, title: str | None = None) -> dict:
-        ingestor = RawIngestor(self.router.config.vault / "raw", self.router.config.state_dir / "ingest-state.json")
+        ingestor = RawIngestor(self.router.config.state_dir.parent / "Sources", self.router.config.state_dir / "ingest-state.json")
         acquired = ingestor.ingest(source, title=title)
         items = list(acquired.get("items", [])) if isinstance(acquired.get("items"), list) else [acquired]
         integrated = [self._integrate_source_item(item) for item in items if not item.get("skipped")]
@@ -263,9 +356,9 @@ class HoloCoreEngine:
     def sync_inbox(self) -> dict:
         if not self.router.config.home:
             return {"synced": False, "reason": "shared Home is not configured", "items": []}
-        inbox = self.router.config.home / "Archive" / "Inbox" / self.router.world_id
+        inbox = self.router.config.state_dir.parent / "Inbox"
         inbox.mkdir(parents=True, exist_ok=True)
-        ingestor = RawIngestor(self.router.config.vault / "raw", self.router.config.state_dir / "ingest-state.json")
+        ingestor = RawIngestor(self.router.config.state_dir.parent / "Sources", self.router.config.state_dir / "ingest-state.json")
         acquired = ingestor.sync_inbox(inbox)
         integrated = [self._integrate_source_item(item) for item in acquired.get("items", []) if not item.get("skipped")]
         self._inbox_synced = True

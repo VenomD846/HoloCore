@@ -16,29 +16,27 @@ def world_paths(root: Path, config: Config | None = None) -> dict[str, str]:
         "world": str(root),
         "world_id": config.world_id or root.name,
         "home": str(config.home or root),
-        "shared_brain": str((config.home / "Archive") if config.home else config.vault),
+        "shared_brain": str(config.home if config.home else config.vault),
         "worlds_registry": str((config.home / "worlds.json") if config.home else root / ".holocore" / "worlds.json"),
-        "start_here": str(root / "HOLOCORE-START-HERE.md"),
-        "archive": str((config.home / "Archive") if config.home else config.vault),
+        "start_here": str((config.home / "Archive" / "system" / "index.md") if config.home else root / "HOLOCORE-START-HERE.md"),
+        "archive": str(config.home if config.home else config.vault),
         "world_archive": str(config.vault),
-        "shared_archive": str(config.shared_archive or config.vault),
-        "ingest_inbox": str(((config.home / "Archive" / "Inbox" / str(config.world_id or root.name)) if config.home else root / "Archive" / "Inbox")),
-        "raw_sources": str(config.vault / "raw"),
-        "archive_inbox": str(config.vault / "Inbox"),
+        "ingest_inbox": str((config.state_dir.parent / "Inbox") if config.home else root / "Archive" / "Inbox"),
+        "raw_sources": str(config.state_dir.parent / "Sources"),
         "archive_entries": str(config.vault / "wiki"),
         "archive_index": str(config.vault / "system" / "index.md"),
-        "atlas_json": str(root / ATLAS_OUT_DIR / "graph.json"),
-        "atlas_html": str(root / ATLAS_OUT_DIR / "atlas.html"),
+        "atlas_json": str(config.atlas_graph_path),
+        "atlas_html": str(config.atlas_graph_path.with_name("atlas.html")),
         "atlas_runtime": str(config.atlas_path),
         "memory_shards": str(config.animus_path),
         "raw_chats": str(config.raw_chats_path),
         "runtime": str(config.state_dir),
-        "claude_mcp": str(root / ".mcp.json"),
-        "claude_commands": str(root / ".claude" / "commands"),
-        "claude_hooks": str(root / ".claude" / "settings.json"),
-        "codex_mcp": str(root / ".codex" / "config.toml"),
-        "codex_hooks": str(root / ".codex" / "hooks.json"),
-        "codex_skills": str(root / ".agents" / "skills"),
+        "claude_mcp": str((config.home / "Connections" / ".mcp.json") if config.home else root / ".mcp.json"),
+        "claude_commands": str((config.home / "Connections" / ".claude" / "commands") if config.home else root / ".claude" / "commands"),
+        "claude_hooks": str((config.home / "Connections" / ".claude" / "settings.json") if config.home else root / ".claude" / "settings.json"),
+        "codex_mcp": str((config.home / "Connections" / ".codex" / "config.toml") if config.home else root / ".codex" / "config.toml"),
+        "codex_hooks": str((config.home / "Connections" / ".codex" / "hooks.json") if config.home else root / ".codex" / "hooks.json"),
+        "codex_skills": str((config.home / "Connections" / ".agents" / "skills") if config.home else root / ".agents" / "skills"),
     }
 
 
@@ -57,15 +55,14 @@ This folder is one **World**: `{root.name}`.
 | HoloCore Home | `{paths['home']}` | Shared home used by every registered project |
 | Shared second brain | `{paths['archive']}` | One visible Obsidian-ready knowledge vault |
 | This World's Archive | `{paths['world_archive']}` | Durable knowledge scoped to this project |
-| Shared Archive Entries | `{paths['shared_archive']}` | Knowledge intentionally shared across projects |
 | Source Inbox | `{paths['ingest_inbox']}` | Drop files here; HoloCore ingests new content on the next search or AI capture hook |
 | Immutable raw sources | `{paths['raw_sources']}` | Content-addressed originals retained for audit and reprocessing |
-| Atlas JSON | `holocore-out/graph.json` | Machine-readable structural map (`.holocore/atlas.json` remains a compatibility copy) |
-| Atlas HTML | `holocore-out/atlas.html` | Interactive graph for people and AI tools (`.holocore/atlas.html` remains a compatibility copy) |
-| Memory Shards | `.holocore/animus.db` | Searchable remembered history in SQLite |
-| Raw chat audit | `.holocore/raw-chats/` | Original chats retained for traceability |
+| Atlas JSON | `{paths['atlas_json']}` | Machine-readable structural and semantic map |
+| Atlas HTML | `{paths['atlas_html']}` | Interactive graph for people and AI tools |
+| Memory Shards | `{paths['memory_shards']}` | Searchable remembered history in SQLite |
+| Raw chat audit | `{paths['raw_chats']}` | Original chats retained for traceability |
 
-The shared Archive is deliberately visible. In Obsidian, choose **Open folder as vault** and select:
+The Archive is deliberately visible. In Obsidian, choose **Open folder as vault** and select:
 
 `{paths['archive']}`
 
@@ -73,11 +70,11 @@ Obsidian is optional; HoloCore and connected AI clients can read the Markdown di
 
 ## Connect an AI client
 
-Setup registers this World with the same shared brain and installs its AI connections. Run `holocore connect` to repair them.
+Setup registers this World with the same shared brain. AI connection files and skills are installed once under HoloCore Home, not copied into this project. Run `holocore connect` to repair the shared bundle.
 
 - Claude Code: run `/mcp` to approve/check HoloCore, then use `/holocore-search`.
-- Codex: use `$holocore-search`; project skills live in `.agents/skills/`.
-- Any MCP client: connect the generated `holocore` stdio server and call its tools.
+- Codex: use `$holocore-search`; shared skills live under `Home/Connections/.agents/skills/`.
+- Any MCP client: connect the shared `holocore` stdio server once and pass the active World root.
 
 Conversations are captured automatically at supported client hook points, useful shards are promoted into this World's Archive, and Atlas refreshes before search when source files changed. Run `holocore paths` at any time to print every absolute location, or `holocore doctor` to check the connection.
 """
@@ -92,10 +89,8 @@ def format_paths(paths: dict[str, str]) -> str:
         "worlds_registry": "Registered Worlds",
         "archive": "Archive (Obsidian vault)",
         "world_archive": "This World's Archive",
-        "shared_archive": "Shared Archive Entries",
         "ingest_inbox": "Automatic source Inbox",
         "raw_sources": "Immutable raw sources",
-        "archive_inbox": "Archive Inbox",
         "archive_entries": "Archive Entries",
         "archive_index": "Archive index",
         "atlas_json": "Atlas machine graph",
@@ -117,6 +112,7 @@ def format_paths(paths: dict[str, str]) -> str:
 
 def integration_status(root: Path) -> dict[str, dict[str, object]]:
     root = root.resolve()
+    paths = world_paths(root, Config.load(root=root))
 
     def json_mcp(path: Path, key: str = "mcpServers") -> tuple[bool, str]:
         if not path.exists():
@@ -127,7 +123,13 @@ def integration_status(root: Path) -> dict[str, dict[str, object]]:
         except (OSError, json.JSONDecodeError) as exc:
             return False, f"invalid JSON: {exc}"
 
-    claude_ok, claude_detail = json_mcp(root / ".mcp.json")
+    claude_mcp = Path(paths["claude_mcp"])
+    claude_commands = Path(paths["claude_commands"])
+    claude_hooks = Path(paths["claude_hooks"])
+    codex_path = Path(paths["codex_mcp"])
+    codex_hooks = Path(paths["codex_hooks"])
+    codex_skills = Path(paths["codex_skills"])
+    claude_ok, claude_detail = json_mcp(claude_mcp)
 
     def capture_hook(path: Path, event: str) -> bool:
         try:
@@ -136,9 +138,8 @@ def integration_status(root: Path) -> dict[str, dict[str, object]]:
             return False
         return "holocore.capture_hook" in json.dumps(data.get("hooks", {}).get(event, []))
 
-    claude_capture = capture_hook(root / ".claude" / "settings.json", "SessionEnd")
-    codex_capture = capture_hook(root / ".codex" / "hooks.json", "Stop")
-    codex_path = root / ".codex" / "config.toml"
+    claude_capture = capture_hook(claude_hooks, "SessionEnd")
+    codex_capture = capture_hook(codex_hooks, "Stop")
     try:
         codex_data = tomllib.loads(codex_path.read_text(encoding="utf-8")) if codex_path.exists() else {}
         codex_ok = "holocore" in codex_data.get("mcp_servers", {})
@@ -149,16 +150,16 @@ def integration_status(root: Path) -> dict[str, dict[str, object]]:
         "claude": {
             "connected": claude_ok,
             "detail": claude_detail,
-            "config": str(root / ".mcp.json"),
-            "slash_commands": len(list((root / ".claude" / "commands").glob("holocore-*.md"))),
-            "skills": len(list((root / ".claude" / "skills").glob("holocore-*/SKILL.md"))),
+            "config": str(claude_mcp),
+            "slash_commands": len(list(claude_commands.glob("holocore-*.md"))),
+            "skills": len(list((claude_commands.parent / "skills").glob("holocore-*/SKILL.md"))),
             "capture": claude_capture,
         },
         "codex": {
             "connected": codex_ok,
             "detail": codex_detail,
             "config": str(codex_path),
-            "skills": len(list((root / ".agents" / "skills").glob("holocore-*/SKILL.md"))),
+            "skills": len(list(codex_skills.glob("holocore-*/SKILL.md"))),
             "capture": codex_capture,
         },
     }

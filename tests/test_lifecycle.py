@@ -32,18 +32,19 @@ def test_sync_all_reconciles_two_registered_worlds(
     assert all(item["atlas"]["fresh"] is True for item in report["worlds"])
 
     configs = [
-        json.loads((world / ".holocore/config.json").read_text(encoding="utf-8"))
-        for world in worlds
+        json.loads((isolated_holocore_home / "Projects" / world_id / "world.json").read_text(encoding="utf-8"))
+        for world_id in expected_ids
     ]
     assert {config["home"] for config in configs} == {str(isolated_holocore_home)}
     assert {config["world_id"] for config in configs} == expected_ids
     assert len({config["archive"] for config in configs}) == 2
-    for world, config in zip(worlds, configs, strict=True):
-        assert Path(config["archive"]).parent == isolated_holocore_home / "Archive" / "Worlds"
-        assert config["shared_archive"] == str(isolated_holocore_home / "Archive" / "Shared")
-        assert (world / "holocore-out/graph.json").is_file()
-        assert (world / "holocore-out/graph.html").is_file()
-        assert (world / ".holocore/atlas.json").is_file()
+    for config in configs:
+        storage = isolated_holocore_home / "Projects" / config["world_id"]
+        assert Path(config["archive"]) == isolated_holocore_home / "Archive" / "Worlds" / config["world_id"]
+        assert "shared_archive" not in config
+        assert (storage / "Atlas" / "graph.json").is_file()
+        assert (storage / "Atlas" / "atlas.html").is_file()
+        assert not Path(config["root"]).joinpath("holocore-out").exists()
 
 
 def test_update_install_upgrades_then_reconciles(monkeypatch, tmp_path: Path) -> None:

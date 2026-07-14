@@ -37,6 +37,9 @@ def test_refines_in_one_call_audits_raw_chat_and_distills_shards(tmp_path):
     audit = json.loads(result.audit_path.read_text(encoding="utf-8"))
     assert audit["messages"][0]["content"] == "raw secret conversation"
     assert animus.status("demo")["memory_shards"] == 5
+    timeline = animus.timeline(world="demo", sector="sessions")
+    assert len(timeline) == 1
+    assert "Transcript:" in timeline[0].content
 
 
 def test_existing_animus_deduplicates_distilled_content(tmp_path):
@@ -56,3 +59,4 @@ def test_local_provider_is_deterministic_and_keyless():
     result = provider.extract(messages)
     assert result["decisions"] == ["We decided to use SQLite."]
     assert result["preferences"] == ["I prefer local tools."]
+    assert result["entities"] == ["SQLite"]

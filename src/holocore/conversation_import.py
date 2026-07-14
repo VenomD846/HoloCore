@@ -34,9 +34,9 @@ class ConversationImporter:
             payload = None
         provider = provider.casefold()
         messages = self._chatgpt(payload) if provider in {"auto", "chatgpt"} and payload is not None and self._looks_chatgpt(payload) else None
-        if messages is None and provider in {"auto", "slack"} and payload is not None:
+        if not messages and provider in {"auto", "slack"} and payload is not None:
             messages = self._slack(payload)
-        if messages is None:
+        if not messages:
             messages = self._generic(payload, raw.decode("utf-8", errors="replace"))
         return {"provider": provider if provider != "auto" else self._detected(payload), "source": str(source), "content_hash": digest, "messages": messages, "message_count": len(messages)}
 

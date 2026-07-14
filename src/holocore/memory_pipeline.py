@@ -96,6 +96,21 @@ class MemoryRefinementPipeline:
             metadata={"memory_kind": kind, "raw_audit": str(audit_path)},
             source_metadata={"raw_source_ref": source_ref},
         ) for index, (kind, content) in enumerate(records))
+        transcript = "\n\n".join(
+            f"{item['role']}: {item['content']}" for item in messages if item["content"].strip()
+        )
+        diary_content = extraction.summary or transcript
+        if extraction.summary and transcript:
+            diary_content = f"{extraction.summary}\n\nTranscript:\n{transcript}"
+        self.animus.record_diary(
+            diary_content,
+            world=world,
+            sector=sector,
+            title=f"Conversation: {Path(source_ref).name or 'chat'}",
+            kind="conversation",
+            metadata={"message_count": len(messages), "raw_audit": str(audit_path)},
+            source_ref=source_ref,
+        )
         return RefinementResult(extraction, shards, audit_path)
 
 

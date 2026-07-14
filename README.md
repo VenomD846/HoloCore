@@ -2,7 +2,7 @@
 
 ![HoloCore Context Engine icon](docs/assets/holocore-icon.png)
 
-**HoloCore Context Engine** is a local AI knowledge system for all your projects. Version `0.5.0` combines one shared Markdown Archive with a project-local structural Atlas and project-local episodic Animus behind one CLI and MCP server.
+**HoloCore Context Engine** is a local AI knowledge system for all your projects. Version `0.6.0` combines one shared Markdown Archive with a project structural Atlas and shared episodic Animus behind one CLI, MCP server, and browser Console.
 
 ![HoloCore Context Engine checks Atlas, reads matching Archive knowledge, optionally recalls Animus history, and sends focused context to reduce input tokens](docs/assets/holocore-context-engine-token-savings.png)
 
@@ -26,14 +26,10 @@ You choose one **HoloCore Home**. Its `Archive` folder is one Obsidian-ready vau
 │   └── system/index.md            Vault entry point
 └── worlds.json                    Registered World list
 
-<project>/
-├── holocore-out/
-│   ├── graph.json                 Public Atlas graph
-│   └── atlas.html                 Interactive structure graph
-└── .holocore/
-    ├── atlas.json                 Atlas compatibility mirror
-    ├── animus.db                  Project history
-    └── raw-chats/                 Original chat audits
+<Home>/
+├── Animus/animus.db                Shared SQLite memory and chat history
+├── Animus/raw-chats/<world>/        Immutable original chat audits
+└── Projects/<world>/Atlas/         Per-World graph.json and atlas.html
 ```
 
 Archive is shared as a vault, but retrieval remains scoped: HoloCore searches the active World's entries and `Shared`, not every other World.
@@ -91,7 +87,13 @@ holocore status
 holocore paths
 holocore worlds
 holocore search "Why did we choose SQLite?"
+holocore console                    # open the local browser Console
 ```
+
+The Console brings chats, Memory Shards, Decks and Signal Chronicles, the
+World wiki, exact storage locations, command invocations, and the Atlas link
+into one local view. Wiki edits are validated through the Archive API; captured
+chats remain immutable.
 
 Open `<Home>/Archive` as one Obsidian vault if you want Obsidian's Markdown and graph interface. Obsidian is optional; HoloCore works from the CLI and AI clients without it.
 
@@ -132,6 +134,9 @@ Use `holocore connect` to add or repair integrations after installing another cl
 - **Archive Entry** = polished durable note.
 - **Signal** = one mapped thing.
 - **Constellation** = group of related mapped things.
+- **Deck** = bounded context inside a World for related memories.
+- **Signal** = a named concept, person, system, or decision tracked over time.
+- **Chronicle** = the time-ordered assertions and changes for a Signal.
 
 ## Documentation
 

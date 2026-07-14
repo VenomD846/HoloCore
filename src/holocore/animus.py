@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def _now() -> str:
@@ -128,6 +128,39 @@ class Checkpoint:
     updated_at: str
 
 
+@dataclass(frozen=True)
+class Room:
+    world_id: str
+    id: str
+    name: str
+    description: str = ""
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Entity:
+    id: str
+    world_id: str
+    room_id: str | None
+    name: str
+    kind: str
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class EntityEvent:
+    id: str
+    entity_id: str
+    world_id: str
+    relation: str
+    value: str
+    occurred_at: str
+    valid_from: str | None
+    valid_to: str | None
+    source_ref: str
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+
 class Animus:
     """SQLite-backed Worlds, Sectors, and verbatim Memory Shards."""
 
@@ -197,6 +230,25 @@ class Animus:
                     source_ref TEXT NOT NULL, chunk_index INTEGER NOT NULL, version_token TEXT,
                     metadata TEXT NOT NULL, first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL,
                     UNIQUE(diary_id, source_ref, chunk_index));
+                CREATE TABLE IF NOT EXISTS rooms(
+                    world_id TEXT NOT NULL REFERENCES worlds(id) ON DELETE CASCADE,
+                    id TEXT NOT NULL, name TEXT NOT NULL, description TEXT NOT NULL,
+                    metadata TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                    PRIMARY KEY(world_id, id), UNIQUE(world_id, name));
+                CREATE TABLE IF NOT EXISTS entities(
+                    id TEXT PRIMARY KEY, world_id TEXT NOT NULL REFERENCES worlds(id) ON DELETE CASCADE,
+                    room_id TEXT, name TEXT NOT NULL, kind TEXT NOT NULL, metadata TEXT NOT NULL,
+                    created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                    FOREIGN KEY(world_id, room_id) REFERENCES rooms(world_id, id) ON DELETE SET NULL,
+                    UNIQUE(world_id, name, kind));
+                CREATE INDEX IF NOT EXISTS ix_entities_scope ON entities(world_id, room_id);
+                CREATE TABLE IF NOT EXISTS entity_events(
+                    id TEXT PRIMARY KEY, entity_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+                    world_id TEXT NOT NULL REFERENCES worlds(id) ON DELETE CASCADE,
+                    relation TEXT NOT NULL, value TEXT NOT NULL, occurred_at TEXT NOT NULL,
+                    valid_from TEXT, valid_to TEXT, source_ref TEXT NOT NULL, metadata TEXT NOT NULL,
+                    UNIQUE(entity_id, relation, value, source_ref));
+                CREATE INDEX IF NOT EXISTS ix_entity_events_scope ON entity_events(world_id, occurred_at);
                 """
             )
             row = db.execute("SELECT version FROM schema_info LIMIT 1").fetchone()
@@ -228,6 +280,146 @@ class Animus:
             )
         return self.get_world(world_id)
 
+    def rename_world(
+        self, old_id: str, new_id: str, display_name: str | None = None
+    ) -> bool:
+        """Rename a World and every scoped record in one SQLite transaction."""
+        old_id = _required(old_id, "old_id")
+        new_id = _required(new_id, "new_id")
+        if old_id == new_id:
+            return False
+        db = self._connect()
+        try:
+            if db.execute("SELECT 1 FROM worlds WHERE id=?", (old_id,)).fetchone() is None:
+                return False
+            target_exists = db.execute(
+                "SELECT 1 FROM worlds WHERE id=?", (new_id,)
+            ).fetchone() is not None
+            if target_exists:
+                substantive = sum(
+                    int(db.execute(f"SELECT count(*) FROM {table} WHERE world_id=?", (old_id,)).fetchone()[0])
+                    for table in ("shards", "provenance", "checkpoints", "diary", "rooms", "entities", "entity_events")
+                )
+                if substantive:
+                    raise ValueError(
+                        f"cannot merge Animus World {old_id!r} into existing {new_id!r}: "
+                        f"the old scope contains {substantive} records"
+                    )
+            db.commit()
+            db.execute("PRAGMA foreign_keys = OFF")
+            db.execute("BEGIN IMMEDIATE")
+            if target_exists:
+                db.execute(
+                    "INSERT OR IGNORE INTO sectors "
+                    "SELECT ?, id, display_name, metadata, created_at, updated_at "
+                    "FROM sectors WHERE world_id=?",
+                    (new_id, old_id),
+                )
+                db.execute("DELETE FROM sectors WHERE world_id=?", (old_id,))
+                db.execute("DELETE FROM worlds WHERE id=?", (old_id,))
+                db.execute(
+                    "UPDATE worlds SET display_name=?, updated_at=? WHERE id=?",
+                    (display_name or new_id, _now(), new_id),
+                )
+            else:
+                for table in ("sectors", "shards", "provenance", "checkpoints", "diary", "rooms", "entities", "entity_events"):
+                    db.execute(f"UPDATE {table} SET world_id=? WHERE world_id=?", (new_id, old_id))
+                db.execute(
+                    "UPDATE worlds SET id=?, display_name=?, updated_at=? WHERE id=?",
+                    (new_id, display_name or new_id, _now(), old_id),
+                )
+            db.commit()
+            db.execute("PRAGMA foreign_keys = ON")
+            violations = db.execute("PRAGMA foreign_key_check").fetchall()
+            if violations:
+                raise RuntimeError(f"Animus World rename left foreign-key violations: {violations}")
+            return True
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    def merge_database(self, source: str | Path, *, world: str | None = None) -> dict[str, int]:
+        """Merge a legacy Animus database into this store without deleting it."""
+        source_path = Path(source).expanduser().resolve()
+        if source_path == self.path.resolve():
+            return {"worlds": 0, "shards": 0, "provenance": 0, "diary": 0}
+        source_db = sqlite3.connect(f"file:{source_path}?mode=ro", uri=True)
+        source_db.row_factory = sqlite3.Row
+        try:
+            source_worlds = source_db.execute("SELECT * FROM worlds").fetchall()
+            override = _required(world, "world") if world else None
+            world_map = {row["id"]: (override or row["id"]) for row in source_worlds}
+            counts = {"worlds": 0, "shards": 0, "provenance": 0, "diary": 0}
+            shard_map: dict[str, str] = {}
+            diary_map: dict[str, str] = {}
+            with self._connection() as db:
+                for row in source_worlds:
+                    target_world = world_map[row["id"]]
+                    before = db.total_changes
+                    db.execute(
+                        "INSERT OR IGNORE INTO worlds VALUES(?,?,?,?,?)",
+                        (target_world, row["display_name"], row["metadata"], row["created_at"], row["updated_at"]),
+                    )
+                    counts["worlds"] += int(db.total_changes > before)
+                for row in source_db.execute("SELECT * FROM sectors"):
+                    db.execute(
+                        "INSERT OR IGNORE INTO sectors VALUES(?,?,?,?,?,?)",
+                        (world_map[row["world_id"]], row["id"], row["display_name"], row["metadata"], row["created_at"], row["updated_at"]),
+                    )
+                for row in source_db.execute("SELECT * FROM shards"):
+                    target_world = world_map[row["world_id"]]
+                    values = (
+                        row["id"], target_world, row["sector_id"], row["content"], row["content_hash"],
+                        row["route_hint"], row["transformations"], row["privacy"], row["metadata"],
+                        row["created_at"], row["updated_at"],
+                    )
+                    before = db.total_changes
+                    db.execute("INSERT OR IGNORE INTO shards VALUES(?,?,?,?,?,?,?,?,?,?,?)", values)
+                    if db.total_changes > before:
+                        shard_map[row["id"]] = row["id"]
+                        counts["shards"] += 1
+                    else:
+                        existing = db.execute(
+                            "SELECT id FROM shards WHERE world_id=? AND ifnull(sector_id,'')=ifnull(?,'') AND content_hash=?",
+                            (target_world, row["sector_id"], row["content_hash"]),
+                        ).fetchone()
+                        shard_map[row["id"]] = existing["id"] if existing else row["id"]
+                for row in source_db.execute("SELECT * FROM provenance"):
+                    before = db.total_changes
+                    db.execute(
+                        "INSERT OR IGNORE INTO provenance(shard_id,world_id,source_ref,chunk_index,version_token,metadata,first_seen_at,last_seen_at) VALUES(?,?,?,?,?,?,?,?)",
+                        (shard_map[row["shard_id"]], world_map[row["world_id"]], row["source_ref"], row["chunk_index"], row["version_token"], row["metadata"], row["first_seen_at"], row["last_seen_at"]),
+                    )
+                    counts["provenance"] += int(db.total_changes > before)
+                for row in source_db.execute("SELECT * FROM checkpoints"):
+                    db.execute(
+                        "INSERT OR REPLACE INTO checkpoints VALUES(?,?,?,?,?,?)",
+                        (world_map[row["world_id"]], row["sector_id"], row["mode"], row["source_ref"], row["cursor"], row["updated_at"]),
+                    )
+                for row in source_db.execute("SELECT * FROM diary"):
+                    target_world = world_map[row["world_id"]]
+                    before = db.total_changes
+                    db.execute(
+                        "INSERT OR IGNORE INTO diary VALUES(?,?,?,?,?,?,?,?,?)",
+                        (row["id"], target_world, row["sector_id"], row["occurred_at"], row["title"], row["content"], row["kind"], row["metadata"], row["created_at"]),
+                    )
+                    counts["diary"] += int(db.total_changes > before)
+                    existing = db.execute(
+                        "SELECT id FROM diary WHERE world_id=? AND sector_id=? AND content=?",
+                        (target_world, row["sector_id"], row["content"]),
+                    ).fetchone()
+                    diary_map[row["id"]] = existing["id"] if existing else row["id"]
+                for row in source_db.execute("SELECT * FROM diary_provenance"):
+                    db.execute(
+                        "INSERT OR IGNORE INTO diary_provenance(diary_id,source_ref,chunk_index,version_token,metadata,first_seen_at,last_seen_at) VALUES(?,?,?,?,?,?,?)",
+                        (diary_map[row["diary_id"]], row["source_ref"], row["chunk_index"], row["version_token"], row["metadata"], row["first_seen_at"], row["last_seen_at"]),
+                    )
+            return counts
+        finally:
+            source_db.close()
+
     def get_world(self, world_id: str) -> World:
         with self._connection() as db:
             row = db.execute("SELECT * FROM worlds WHERE id=?", (world_id,)).fetchone()
@@ -253,6 +445,57 @@ class Animus:
         if row is None:
             raise KeyError(f"unknown Sector: {world}/{sector_id}")
         return Sector(row["world_id"], row["id"], row["display_name"], json.loads(row["metadata"]), row["created_at"], row["updated_at"])
+
+    # MemPalace wings/rooms/drawers become World/Room/Entity here. Entities
+    # keep temporal assertions so a later value does not erase history.
+    def create_room(self, world: str, name: str, description: str = "", metadata: Mapping[str, Any] | None = None) -> Room:
+        self.get_world(world); name = _required(name, "room name"); now = _now()
+        room_id = re.sub(r"[^a-z0-9]+", "-", name.casefold()).strip("-") or "room"
+        with self._connection() as db:
+            db.execute("INSERT INTO rooms VALUES(?,?,?,?,?,?,?) ON CONFLICT(world_id,id) DO UPDATE SET name=excluded.name,description=excluded.description,metadata=excluded.metadata,updated_at=excluded.updated_at", (world, room_id, name, description, _json(metadata), now, now))
+        return Room(world, room_id, name, description, dict(metadata or {}))
+
+    def rooms(self, *, world: str) -> list[Room]:
+        self.get_world(world)
+        with self._connection() as db: rows = db.execute("SELECT * FROM rooms WHERE world_id=? ORDER BY name", (world,)).fetchall()
+        return [Room(r["world_id"], r["id"], r["name"], r["description"], json.loads(r["metadata"])) for r in rows]
+
+    def upsert_entity(self, name: str, *, world: str, kind: str = "concept", room: str | None = None, metadata: Mapping[str, Any] | None = None) -> Entity:
+        self.get_world(world); name, kind, now = _required(name, "entity name"), _required(kind, "entity kind"), _now(); room_id = self.create_room(world, room).id if room else None
+        entity_id = hashlib.sha256(f"{world}\0{kind}\0{name.casefold()}".encode()).hexdigest()[:32]
+        with self._connection() as db:
+            db.execute("INSERT INTO entities VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(world_id,name,kind) DO UPDATE SET room_id=excluded.room_id,metadata=excluded.metadata,updated_at=excluded.updated_at", (entity_id, world, room_id, name, kind, _json(metadata), now, now))
+            row = db.execute("SELECT * FROM entities WHERE world_id=? AND name=? AND kind=?", (world, name, kind)).fetchone()
+        return Entity(row["id"], row["world_id"], row["room_id"], row["name"], row["kind"], json.loads(row["metadata"]))
+
+    def record_entity_event(self, entity: str, relation: str, value: str, *, world: str, kind: str = "concept", room: str | None = None, occurred_at: str | None = None, valid_from: str | None = None, valid_to: str | None = None, source_ref: str = "animus", metadata: Mapping[str, Any] | None = None) -> EntityEvent:
+        item = self.upsert_entity(entity, world=world, kind=kind, room=room); occurred_at = occurred_at or _now(); event_id = hashlib.sha256(f"{item.id}\0{relation}\0{value}\0{source_ref}".encode()).hexdigest()[:32]
+        with self._connection() as db:
+            db.execute("INSERT INTO entity_events VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(entity_id,relation,value,source_ref) DO UPDATE SET valid_to=excluded.valid_to,metadata=excluded.metadata", (event_id, item.id, world, _required(relation, "relation"), _required(value, "value"), occurred_at, valid_from, valid_to, source_ref, _json(metadata)))
+            row = db.execute("SELECT * FROM entity_events WHERE id=?", (event_id,)).fetchone()
+        return EntityEvent(row["id"], row["entity_id"], row["world_id"], row["relation"], row["value"], row["occurred_at"], row["valid_from"], row["valid_to"], row["source_ref"], json.loads(row["metadata"]))
+
+    def entity_timeline(self, *, world: str, entity: str | None = None, room: str | None = None, limit: int = 100) -> list[EntityEvent]:
+        self.get_world(world); sql = "SELECT ev.* FROM entity_events ev JOIN entities e ON e.id=ev.entity_id WHERE ev.world_id=?"; params: list[Any] = [world]
+        if entity: sql += " AND e.name=?"; params.append(entity)
+        if room: sql += " AND e.room_id=?"; params.append(room)
+        sql += " ORDER BY ev.occurred_at DESC LIMIT ?"; params.append(limit)
+        with self._connection() as db: rows = db.execute(sql, params).fetchall()
+        return [EntityEvent(r["id"], r["entity_id"], r["world_id"], r["relation"], r["value"], r["occurred_at"], r["valid_from"], r["valid_to"], r["source_ref"], json.loads(r["metadata"])) for r in rows]
+
+    def entity_graph(self, *, world: str, room: str | None = None) -> dict[str, Any]:
+        events = self.entity_timeline(world=world, room=room, limit=10000)
+        return {"world": world, "events": [event.__dict__ for event in events]}
+
+    # HoloCore public vocabulary. The older room/entity method names remain
+    # as compatibility aliases, but user-facing surfaces use Deck/Signal/
+    # Chronicle/Constellation language.
+    create_deck = create_room
+    decks = rooms
+    upsert_signal = upsert_entity
+    record_signal_chronicle = record_entity_event
+    signal_chronicle = entity_timeline
+    signal_constellation = entity_graph
 
     def ingest(self, content: str, *, world: str, source_ref: str, sector: str | None = None,
                version_token: str | None = None, chunk_index: int = 0,
@@ -347,7 +590,10 @@ class Animus:
         """Return all shards in one explicit scope for provider retrieval."""
         self.get_world(world)
         with self._connection() as db:
-            rows = db.execute("SELECT id FROM shards WHERE world_id=? AND sector_id IS ? ORDER BY id", (world, sector)).fetchall()
+            if sector is None:
+                rows = db.execute("SELECT id FROM shards WHERE world_id=? ORDER BY id", (world,)).fetchall()
+            else:
+                rows = db.execute("SELECT id FROM shards WHERE world_id=? AND sector_id=? ORDER BY id", (world, sector)).fetchall()
         return [self._get_shard(row["id"]) for row in rows]
 
     def set_checkpoint(self, *, world: str, mode: str, source_ref: str, cursor: str,
@@ -394,7 +640,10 @@ class Animus:
     def timeline(self, *, world: str, sector: str | None = None, limit: int = 100) -> list[DiaryRecord]:
         self.get_world(world)
         with self._connection() as db:
-            rows = db.execute("SELECT id FROM diary WHERE world_id=? AND sector_id=? ORDER BY occurred_at DESC LIMIT ?", (world, sector or "", limit)).fetchall()
+            if sector is None:
+                rows = db.execute("SELECT id FROM diary WHERE world_id=? ORDER BY occurred_at DESC LIMIT ?", (world, limit)).fetchall()
+            else:
+                rows = db.execute("SELECT id FROM diary WHERE world_id=? AND sector_id=? ORDER BY occurred_at DESC LIMIT ?", (world, sector, limit)).fetchall()
         return [self._get_diary(row["id"]) for row in rows]
 
     def consolidate(self, *, world: str, sector: str | None = None) -> dict[str, int]:

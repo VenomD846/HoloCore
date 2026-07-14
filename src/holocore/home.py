@@ -8,13 +8,11 @@ Archive stores shared and per-World Markdown.
 from __future__ import annotations
 
 import filecmp
-import hashlib
 import json
 import os
 import re
 import shutil
 import tempfile
-import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
@@ -85,10 +83,20 @@ def _load_object(path: Path, *, label: str) -> dict[str, Any]:
     return value
 
 
-def _slug(value: str) -> str:
-    normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
-    slug = re.sub(r"[^a-z0-9]+", "-", normalized.casefold()).strip("-")
-    return slug[:48].rstrip("-") or "world"
+def _world_id(value: str) -> str:
+    """Return a user-visible, filesystem-safe World id without rewriting it."""
+    world_id = value.strip()
+    if (
+        not world_id
+        or world_id in {".", ".."}
+        or world_id != world_id.rstrip(". ")
+        or any(ord(char) < 32 or char in '<>:"/\\|?*' for char in world_id)
+    ):
+        raise ValueError(f"project name is not safe for a World folder: {value!r}")
+    reserved = {"CON", "PRN", "AUX", "NUL", *(f"COM{n}" for n in range(1, 10)), *(f"LPT{n}" for n in range(1, 10))}
+    if world_id.split(".", 1)[0].upper() in reserved:
+        raise ValueError(f"project name is reserved and cannot be a World folder: {value!r}")
+    return world_id
 
 
 def _path_key(path: Path) -> str:
@@ -133,6 +141,11 @@ class HomeManager:
         return self.home / "Archive"
 
     @property
+    def projects(self) -> Path:
+        """Central container for all per-World data."""
+        return self.home / "Projects"
+
+    @property
     def worlds_path(self) -> Path:
         return self.home / REGISTRY_FILENAME
 
@@ -175,7 +188,7 @@ class HomeManager:
             raise NotADirectoryError(str(target))
 
         archive_existed = archive_path.exists()
-        archive_report = Archive(archive_path).init_vault()
+        archive_report = Archive(archive_path).init_vault(container=True)
         if not archive_existed:
             created.append(str(archive_path))
         created.extend(str(archive_path / relative) for relative in archive_report["created"])
@@ -185,7 +198,15 @@ class HomeManager:
             existing_guide = guide.read_text(encoding="utf-8")
         except OSError:
             existing_guide = ""
-        if "operation: vault-init" in existing_guide and "Archive/Worlds" not in existing_guide:
+        if any(
+            marker in existing_guide
+            for marker in (
+                "operation: vault-init",
+                "operation: home-init",
+                '"operation": "vault-init"',
+                '"operation": "home-init"',
+            )
+        ):
             home_guide = """---
 type: guide
 tags: [guide, archive, holocore-home]
@@ -196,29 +217,33 @@ provenance:
 ---
 
 ## For future Claude
-This is the one shared HoloCore Archive. Search Shared and the active World only.
+This Home contains one Archive and every centrally stored World.
 
-# HoloCore shared Archive
+# HoloCore Archive
 
-- `Shared/wiki/` contains durable knowledge intentionally shared by projects.
-- `Worlds/<world-id>/wiki/` contains durable knowledge scoped to one project.
-- Each project's local `.holocore/` contains its Atlas, Animus, and raw-chat audit.
-- `system/index.md` is the vault entry point.
+- `Worlds/<project-name>/wiki/` contains durable knowledge scoped to one project.
+- Cross-project knowledge uses links and tags across World notes.
+- `../Projects/<project-name>/Atlas/` contains that World's structural and semantic graph.
+- `../Animus/` contains one shared, World-scoped SQLite memory store and raw-chat audit.
+- `../Projects/<project-name>/Inbox/` and `Sources/` hold ingestion material outside Obsidian.
+- `system/index.md` is the knowledge entry point.
 
-Open this `Archive` folder as one Obsidian vault. Obsidian is optional.
+Open the `Archive` folder as one Obsidian vault. Obsidian is optional.
 """
             if _atomic_write(guide, home_guide.encode("utf-8")):
                 created.append(str(guide))
 
-        for folder in (archive_path / "Worlds", archive_path / "Shared" / "wiki"):
+        for folder in (
+            target / "Projects",
+            target / "Connections",
+            target / "Animus" / "raw-chats",
+            archive_path / "Worlds",
+        ):
             if not folder.exists():
                 folder.mkdir(parents=True)
                 created.append(str(folder))
             elif not folder.is_dir():
                 raise NotADirectoryError(str(folder))
-
-        shared_report = Archive(archive_path / "Shared").init_vault()
-        created.extend(str(archive_path / "Shared" / relative) for relative in shared_report["created"])
 
         registry_created = False
         if worlds_path.exists():
@@ -256,7 +281,9 @@ Open this `Archive` folder as one Obsidian vault. Obsidian is optional.
         except OSError:
             existing = ""
         marker = "<!-- holocore:managed-home-index -->"
-        if existing and marker not in existing and "operation: vault-init" not in existing:
+        if existing and marker not in existing and not any(
+            value in existing for value in ("operation: vault-init", '"operation": "vault-init"')
+        ):
             return False
         worlds = self.list_worlds()["worlds"] if self.worlds_path.exists() else []
         links = [f"- [[Worlds/{item['id']}/system/index|{item['name']}]]" for item in worlds]
@@ -264,11 +291,7 @@ Open this `Archive` folder as one Obsidian vault. Obsidian is optional.
             marker,
             "# HoloCore Home",
             "",
-            "Start with the active project World, then use Shared only when knowledge applies across projects.",
-            "",
-            "## Shared knowledge",
-            "",
-            "- [[Shared/system/index|Shared Archive index]]",
+            "Start with the active project World. Use links and tags for knowledge that applies across Worlds.",
             "",
             "## Registered Worlds",
             "",
@@ -293,9 +316,9 @@ Open this `Archive` folder as one Obsidian vault. Obsidian is optional.
         self, project_root: str | os.PathLike[str], name: str | None = None
     ) -> str:
         root = _absolute(project_root)
-        display_name = (name or root.name).strip() or root.name or "World"
-        digest = hashlib.sha256(_path_key(root).encode("utf-8")).hexdigest()[:8]
-        return f"{_slug(display_name)}-{digest}"
+        # A World is the project, so its durable id and folder are the project's
+        # actual directory name. ``name`` remains a display-name concern only.
+        return _world_id(root.name or "World")
 
     def list_worlds(self) -> dict[str, Any]:
         """List registered Worlds without creating a Home as a side effect."""
@@ -335,17 +358,29 @@ Open this `Archive` folder as one Obsidian vault. Obsidian is optional.
         now = _utc_now()
         created = existing is None
         updated = False
+        world_id = self.world_id_for(root)
+        collision = next(
+            (
+                item
+                for item in worlds
+                if item is not existing
+                and str(item.get("id", "")).casefold() == world_id.casefold()
+            ),
+            None,
+        )
+        if collision is not None:
+            raise HomeError(
+                f"World {world_id!r} is already registered for {collision.get('root')}; "
+                "project folder names must be unique within a HoloCore Home"
+            )
 
         if existing is None:
-            world_id = self.world_id_for(root, display_name)
-            used_ids = {str(item.get("id")) for item in worlds}
-            if world_id in used_ids:
-                digest = hashlib.sha256(root_key.encode("utf-8")).hexdigest()[:12]
-                world_id = f"{_slug(display_name)}-{digest}"
+            world_storage = self.projects / world_id
             record = {
                 "id": world_id,
                 "name": display_name,
                 "root": str(root),
+                "storage": str(world_storage),
                 "registered_at": now,
                 "updated_at": now,
                 "app_version": self.app_version,
@@ -353,7 +388,36 @@ Open this `Archive` folder as one Obsidian vault. Obsidian is optional.
             worlds.append(record)
         else:
             record = existing
-            expected = {"name": display_name, "root": str(root), "app_version": self.app_version}
+            old_id = str(record.get("id", ""))
+            old_storage = Path(str(record.get("storage") or self.projects / old_id))
+            new_storage = self.projects / world_id
+            if old_id != world_id or old_storage != new_storage:
+                if old_storage.exists() and new_storage.exists() and old_storage.resolve() != new_storage.resolve():
+                    raise HomeError(
+                        f"cannot migrate World {old_id!r}: destination already exists at {new_storage}"
+                    )
+                moved = False
+                if old_storage.exists() and old_storage.resolve() != new_storage.resolve():
+                    new_storage.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(old_storage), str(new_storage))
+                    moved = True
+                database = new_storage / "Animus" / "animus.db"
+                try:
+                    if database.is_file() and old_id and old_id != world_id:
+                        from .animus import Animus
+
+                        Animus(database).rename_world(old_id, world_id, display_name)
+                except Exception:
+                    if moved and new_storage.exists() and not old_storage.exists():
+                        shutil.move(str(new_storage), str(old_storage))
+                    raise
+            expected = {
+                "id": world_id,
+                "name": display_name,
+                "root": str(root),
+                "storage": str(new_storage),
+                "app_version": self.app_version,
+            }
             updated = any(record.get(key) != value for key, value in expected.items())
             if updated:
                 record.update(expected)
@@ -367,9 +431,38 @@ Open this `Archive` folder as one Obsidian vault. Obsidian is optional.
             worlds.sort(key=lambda item: str(item.get("id", "")))
             _atomic_write(self.worlds_path, _json_bytes(registry))
 
+        world_storage = Path(str(record["storage"]))
         world_archive = self.archive / "Worlds" / str(record["id"])
-        Archive(world_archive).init_vault()
-        (self.archive / "Inbox" / str(record["id"])).mkdir(parents=True, exist_ok=True)
+        runtime_archive = world_storage / "Archive"
+        if runtime_archive.is_dir() and runtime_archive.resolve() != world_archive.resolve():
+            if world_archive.exists():
+                raise HomeError(
+                    f"cannot simplify World archive: both {runtime_archive} and {world_archive} exist"
+                )
+            world_archive.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(runtime_archive), str(world_archive))
+        Archive(world_archive).init_vault(scoped=True)
+        for folder in (
+            world_storage / "Atlas",
+            world_storage / "Runtime",
+            world_storage / "Inbox",
+            self.home / "Animus" / "raw-chats" / str(record["id"]),
+        ):
+            folder.mkdir(parents=True, exist_ok=True)
+        world_config = {
+            "version": 5,
+            "world": display_name,
+            "world_id": str(record["id"]),
+            "root": str(root),
+            "home": str(self.home),
+            "archive": str(world_archive),
+            "state_dir": str(world_storage / "Runtime"),
+            "animus": str(self.home / "Animus" / "animus.db"),
+            "raw_chats": str(self.home / "Animus" / "raw-chats" / str(record["id"])),
+            "atlas_graph": str(world_storage / "Atlas" / "graph.json"),
+            "llm": {"provider": "local"},
+        }
+        _atomic_write(world_storage / "world.json", _json_bytes(world_config))
         self._refresh_home_index()
 
         import_report = (
@@ -378,7 +471,7 @@ Open this `Archive` folder as one Obsidian vault. Obsidian is optional.
             else {
                 "attempted": False,
                 "source": str(root / "Archive"),
-                "destination": str(self.archive / "Worlds" / str(record["id"]) / "Imported"),
+                "destination": str(world_archive / "Imported"),
                 "copied": [],
                 "skipped": [],
                 "conflicts": [],
@@ -407,8 +500,11 @@ Open this `Archive` folder as one Obsidian vault. Obsidian is optional.
         root = _absolute(project_root)
         source = root / "Archive"
         selected_id = world_id or self.world_id_for(root)
-        if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", selected_id):
-            raise ValueError("world_id must contain only lowercase letters, numbers, and hyphens")
+        _world_id(selected_id)
+        registered = next(
+            (item for item in self.list_worlds()["worlds"] if str(item.get("id")) == selected_id),
+            None,
+        )
         destination = self.archive / "Worlds" / selected_id / "Imported"
         report: dict[str, Any] = {
             "attempted": True,
@@ -428,6 +524,13 @@ Open this `Archive` folder as one Obsidian vault. Obsidian is optional.
             return report
         if source.resolve() == self.archive.resolve():
             report.update({"available": True, "reason": "source is the Home Archive"})
+            return report
+        try:
+            guide = (source / "README.md").read_text(encoding="utf-8-sig", errors="replace")
+        except OSError:
+            guide = ""
+        if "system: holocore" in guide and ("operation: vault-init" in guide or "operation: home-init" in guide):
+            report.update({"available": True, "reason": "generated HoloCore Archive skipped"})
             return report
 
         report["available"] = True

@@ -15,10 +15,10 @@ def test_embedding_retrieval_can_use_custom_embedder(tmp_path: Path) -> None:
     assert result and result[0].method == "semantic"
 
 
-def test_world_to_shared_promotion_reports_conflicts(tmp_path: Path) -> None:
+def test_world_wiki_promotion_reports_conflicts(tmp_path: Path) -> None:
     source = tmp_path / "world" / "note.md"; source.parent.mkdir()
-    shared = tmp_path / "shared"
+    archive = tmp_path / "archive"
     source.write_text("one", encoding="utf-8")
-    assert promote_entry(source, shared)["status"] == "promoted"
+    assert promote_entry(source, archive)["status"] == "promoted"
     source.write_text("two", encoding="utf-8")
-    assert promote_entry(source, shared)["status"] == "conflict"
+    assert promote_entry(source, archive)["status"] == "conflict"

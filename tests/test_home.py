@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 import holocore.home as home_module
@@ -9,6 +8,7 @@ from holocore.config import Config
 from holocore.engine import HoloCoreEngine
 from holocore.home import APP_VERSION, HomeManager
 from holocore.install import bootstrap_project
+from holocore.archive_source import sync_archive_source
 
 
 def test_config_pointer_and_explicit_visible_home(tmp_path: Path, monkeypatch) -> None:
@@ -36,8 +36,12 @@ def test_initialize_creates_visible_archive_layout_idempotently(tmp_path: Path) 
 
     assert first["initialized"] is True
     assert (home / "Archive" / "system" / "index.md").is_file()
+    assert (home / "Projects").is_dir()
+    assert (home / "Connections").is_dir()
+    assert (home / "Archive" / "system" / "index.md").is_file()
+    assert not (home / "system").exists()
     assert (home / "Archive" / "Worlds").is_dir()
-    assert (home / "Archive" / "Shared" / "wiki").is_dir()
+    assert not (home / "Archive" / "Shared").exists()
     assert json.loads(registry_before)["worlds"] == []
     assert second["changed"] is False
     assert second["created"] == []
@@ -60,12 +64,14 @@ def test_register_world_is_stable_atomic_and_lists_existing_worlds(tmp_path: Pat
     listed = manager.list_worlds()
 
     world = first["world"]
-    assert re.fullmatch(r"demo-project-[0-9a-f]{8}", world["id"])
+    assert world["id"] == "Demo Project"
     assert world["name"] == "Demo Project"
     assert world["root"] == str(project.resolve())
     assert world["registered_at"].endswith("Z")
     assert world["updated_at"] == world["registered_at"]
     assert world["app_version"] == APP_VERSION
+    assert Path(world["storage"]) == home / "Projects" / world["id"]
+    assert (Path(world["storage"]) / "world.json").is_file()
     assert first["created"] is True
     assert first["import"]["copied"] == ["wiki/decision.md"]
     assert second["created"] is False
@@ -117,6 +123,21 @@ def test_reregister_updates_metadata_without_changing_stable_id(
     assert second["updated_at"] == "2026-07-13T11:00:00Z"
 
 
+def test_duplicate_project_names_are_rejected_without_hash_suffixes(tmp_path: Path) -> None:
+    first = tmp_path / "one" / "Shared Name"
+    second = tmp_path / "two" / "Shared Name"
+    first.mkdir(parents=True)
+    second.mkdir(parents=True)
+    manager = HomeManager(tmp_path / "home", config_home=tmp_path / "config")
+
+    manager.register_world(first, import_archive=False)
+
+    import pytest
+
+    with pytest.raises(RuntimeError, match="folder names must be unique"):
+        manager.register_world(second, import_archive=False)
+
+
 def test_missing_project_archive_is_a_clear_noop_report(tmp_path: Path) -> None:
     project = tmp_path / "empty-project"
     project.mkdir()
@@ -130,7 +151,20 @@ def test_missing_project_archive_is_a_clear_noop_report(tmp_path: Path) -> None:
     assert result["import"]["copied_count"] == 0
 
 
-def test_two_worlds_share_one_home_without_private_leakage_and_share_archive(
+def test_curated_source_sync_targets_second_brain_world_not_shared_archive(tmp_path: Path) -> None:
+    source = tmp_path / "curated"
+    source.mkdir()
+    (source / "concept.md").write_text("# Durable concept\n", encoding="utf-8")
+    home = tmp_path / "home"
+
+    report = sync_archive_source(source, home)
+
+    assert report["copied"] == ["concept.md"]
+    assert (home / "Archive" / "Worlds" / "Second Brain" / "wiki" / "concept.md").is_file()
+    assert not (home / "Archive" / "Shared").exists()
+
+
+def test_two_worlds_share_one_home_and_animus_without_private_archive_leakage(
     tmp_path: Path, isolated_holocore_home: Path
 ) -> None:
     alpha = tmp_path / "Alpha World"
@@ -143,9 +177,11 @@ def test_two_worlds_share_one_home_without_private_leakage_and_share_archive(
     assert alpha_config.home == beta_config.home == isolated_holocore_home
     assert alpha_config.world_id != beta_config.world_id
     assert alpha_config.vault != beta_config.vault
-    assert alpha_config.shared_archive == beta_config.shared_archive
-    assert alpha_config.animus_path == alpha / ".holocore" / "animus.db"
-    assert beta_config.animus_path == beta / ".holocore" / "animus.db"
+    assert alpha_config.animus_path == beta_config.animus_path == isolated_holocore_home / "Animus" / "animus.db"
+    assert alpha_config.raw_chats_path == isolated_holocore_home / "Animus" / "raw-chats" / "Alpha World"
+    assert beta_config.raw_chats_path == isolated_holocore_home / "Animus" / "raw-chats" / "Beta World"
+    assert not (alpha / ".holocore").exists()
+    assert not (beta / ".holocore").exists()
 
     alpha_engine = HoloCoreEngine(alpha)
     beta_engine = HoloCoreEngine(beta)
@@ -153,16 +189,9 @@ def test_two_worlds_share_one_home_without_private_leakage_and_share_archive(
         "wiki/alpha-private.md", "Alpha-only private archive knowledge."
     )
     assert beta_engine.router.archive.search("Alpha-only private") == []
-
-    alpha_engine.router.archive.create(
-        "shared/wiki/common.md", "Shared beacon knowledge visible from every World."
-    )
-    alpha_hits = alpha_engine.router.archive.search("Shared beacon")
-    beta_hits = beta_engine.router.archive.search("Shared beacon")
-    for hits in (alpha_hits, beta_hits):
-        assert [(hit["archive_scope"], hit["path"]) for hit in hits] == [
-            ("shared", "shared/wiki/common.md")
-        ]
+    assert not (isolated_holocore_home / "Archive" / "Shared").exists()
+    assert (isolated_holocore_home / "Archive" / "Worlds" / "Alpha World" / "wiki").is_dir()
+    assert (isolated_holocore_home / "Archive" / "Worlds" / "Beta World" / "wiki").is_dir()
 
     alpha_engine.remember("alphaepisodicneedle", "project")
     beta_engine.remember("betaepisodicneedle", "project")

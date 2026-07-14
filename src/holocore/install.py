@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -12,7 +13,7 @@ from .archive import Archive
 from .commands import render_all_commands
 from .config import Config
 from .home import HomeManager
-from .layout import render_start_here, world_paths
+from .layout import world_paths
 from .policy import render_policy
 
 
@@ -198,6 +199,43 @@ def _merge_capture_hook(target: Path, event: str, client: str, created: list[Pat
     (updated if existed else created).append(target)
 
 
+def _migrate_legacy_state(root: Path, config: Config, created: list[Path], updated: list[Path], warnings: list[str]) -> None:
+    """Copy useful legacy state once; never remove the project-local source."""
+    target_db = config.animus_path
+    legacy_databases = (
+        root / ".holocore" / "animus.db",
+        config.state_dir.parent / "Animus" / "animus.db",
+    )
+    for legacy_db in legacy_databases:
+        if not legacy_db.is_file() or legacy_db.resolve() == target_db.resolve():
+            continue
+        from .animus import Animus
+
+        existed = target_db.exists()
+        report = Animus(target_db).merge_database(legacy_db, world=config.world_id)
+        (updated if existed else created).append(target_db)
+        warnings.append(
+            f"Migrated {report['shards']} legacy Memory Shards into shared Animus storage; "
+            "the source database was preserved."
+        )
+    legacy_chat_directories = (
+        root / ".holocore" / "raw-chats",
+        config.state_dir.parent / "Animus" / "raw-chats",
+    )
+    for legacy_chats in legacy_chat_directories:
+        if not legacy_chats.is_dir() or legacy_chats.resolve() == config.raw_chats_path.resolve():
+            continue
+        config.raw_chats_path.mkdir(parents=True, exist_ok=True)
+        for source in sorted(legacy_chats.rglob("*")):
+            if not source.is_file():
+                continue
+            destination = config.raw_chats_path / source.relative_to(legacy_chats)
+            if not destination.exists():
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination)
+                created.append(destination)
+
+
 def bootstrap_project(
     project: Path,
     *,
@@ -215,48 +253,29 @@ def bootstrap_project(
     home_manager = HomeManager(home)
     registration = home_manager.register_world(root, import_archive=True)
     world_id = str(registration["world"]["id"])
-    world_archive = home_manager.archive / "Worlds" / world_id
-    shared_archive = home_manager.archive / "Shared"
-    Archive(world_archive).init_vault()
-    server = _mcp_server(root)
+    config = Config.for_world(root)
+    world_storage = config.state_dir.parent
+    connections = home_manager.home / "Connections"
+    server = _mcp_server(home_manager.home)
     mcp = {"mcpServers": {"holocore": server}}
     instructions = render_policy()
+    _migrate_legacy_state(root, config, created, updated, warnings)
 
     generated = {
-        ".holocore/instructions.md": instructions,
-        ".holocore/policy.md": instructions,
-        ".holocore/mcp.json": json.dumps(mcp, indent=2),
-        "HOLOCORE.md": instructions,
+        "policy.md": instructions,
+        "mcp.json": json.dumps(mcp, indent=2),
     }
     for relative, content in generated.items():
-        _write_generated(root / relative, content, created, updated, skipped)
-
-    config_patch = {
-        "version": 2,
-        "world": root.name,
-        "world_id": world_id,
-        "root": str(root),
-        "home": str(home_manager.home),
-        "archive": str(world_archive),
-        "shared_archive": str(shared_archive),
-        "state_dir": str(root / ".holocore"),
-        "animus": str(root / ".holocore" / "animus.db"),
-        "raw_chats": str(root / ".holocore" / "raw-chats"),
-    }
-    _merge_json(root / ".holocore/config.json", config_patch, created, updated, skipped, warnings)
-    config = Config.load(root=root)
-    _write_generated(root / "HOLOCORE-START-HERE.md", render_start_here(root, config), created, updated, skipped)
+        _write_generated(connections / relative, content, created, updated, skipped)
 
     if "codex" in selected:
-        _merge_instructions(root / "AGENTS.md", instructions, created, updated, skipped)
-        _merge_codex_toml(root / ".codex/config.toml", server, created, updated, skipped)
-        _merge_capture_hook(root / ".codex/hooks.json", "Stop", "codex", created, updated, skipped, warnings)
+        _merge_codex_toml(connections / ".codex/config.toml", server, created, updated, skipped)
+        _merge_capture_hook(connections / ".codex/hooks.json", "Stop", "codex", created, updated, skipped, warnings)
     if "claude" in selected:
-        _merge_instructions(root / "CLAUDE.md", instructions, created, updated, skipped)
-        _merge_json(root / ".mcp.json", mcp, created, updated, skipped, warnings)
-        _merge_capture_hook(root / ".claude/settings.json", "SessionEnd", "claude", created, updated, skipped, warnings)
+        _merge_json(connections / ".mcp.json", mcp, created, updated, skipped, warnings)
+        _merge_capture_hook(connections / ".claude/settings.json", "SessionEnd", "claude", created, updated, skipped, warnings)
         _write_generated(
-            root / ".claude/commands/holocore.md",
+            connections / ".claude/commands/holocore.md",
             """---
 description: Show HoloCore status, paths, and the available project commands.
 ---
@@ -264,36 +283,29 @@ description: Show HoloCore status, paths, and the available project commands.
 # HoloCore
 
 Run `holocore status` and `holocore paths` from the project root. HoloCore checks
-Atlas first, then the active Archive and Shared knowledge, and consults Animus
+Atlas first, then the active World wiki, and consults Animus
 only when the question needs history. Use `/holocore-search` for a focused
 knowledge search or `/holocore-doctor` to diagnose the MCP connection.
 """,
             created, updated, skipped,
         )
     if "gemini" in selected:
-        _merge_instructions(root / "GEMINI.md", instructions, created, updated, skipped)
-        _merge_json(root / ".gemini/settings.json", mcp, created, updated, skipped, warnings)
+        _merge_json(connections / ".gemini/settings.json", mcp, created, updated, skipped, warnings)
     if "cursor" in selected:
-        _merge_json(root / ".cursor/mcp.json", mcp, created, updated, skipped, warnings)
-        _write_generated(root / ".cursor/rules/holocore.mdc", instructions, created, updated, skipped)
+        _merge_json(connections / ".cursor/mcp.json", mcp, created, updated, skipped, warnings)
+        _write_generated(connections / ".cursor/rules/holocore.mdc", instructions, created, updated, skipped)
     if "opencode" in selected:
         _merge_json(
-            root / "opencode.json",
-            {"mcp": {"holocore": {"type": "local", "command": [server["command"], *server["args"]], "cwd": str(root)}}},
+            connections / "opencode.json",
+            {"mcp": {"holocore": {"type": "local", "command": [server["command"], *server["args"]], "cwd": str(home_manager.home)}}},
             created, updated, skipped, warnings,
         )
 
     for platform, command_files in render_all_commands().items():
         if platform in selected:
             for relative, content in command_files.items():
-                _write_generated(root / relative, content, created, updated, skipped)
-
-    _protect_private_state(root, created, updated, skipped)
-
-    raw_chats = root / ".holocore" / "raw-chats"
-    if not raw_chats.exists():
-        raw_chats.mkdir(parents=True)
-        created.append(raw_chats)
+                # Commands and skills are installed once in Home, not copied into every World.
+                _write_generated(connections / relative, content, created, updated, skipped)
 
     git = "skipped"
     if init_git and not (root / ".git").exists():

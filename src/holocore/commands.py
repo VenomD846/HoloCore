@@ -28,6 +28,7 @@ COMMANDS: tuple[CommandDefinition, ...] = (
     CommandDefinition("update", "Update HoloCore and reconcile every registered World.", "holocore update", True),
     CommandDefinition("install-check", "Check the installed HoloCore version and safe lifecycle commands.", "holocore install-check"),
     CommandDefinition("uninstall", "Remove the HoloCore CLI while preserving project and Home data.", "holocore uninstall", True),
+    CommandDefinition("cleanup", "Preview or remove verified legacy HoloCore project artifacts.", "holocore cleanup $ARGUMENTS", True),
     CommandDefinition("ingest", "Ingest a file, folder, or URL into raw sources, Animus, Archive, and Atlas.", "holocore ingest $ARGUMENTS", True),
     CommandDefinition("inbox-sync", "Ingest new files from this World's visible source Inbox.", "holocore inbox-sync", True),
     CommandDefinition("paths", "Show exactly where HoloCore stores every kind of data.", "holocore paths"),
@@ -41,6 +42,9 @@ COMMANDS: tuple[CommandDefinition, ...] = (
     CommandDefinition("timeline", "Read the Animus episodic timeline.", "holocore timeline $ARGUMENTS"),
     CommandDefinition("consolidate", "Consolidate duplicate Animus diary records.", "holocore consolidate $ARGUMENTS", True),
     CommandDefinition("animus-export", "Export scoped Animus records.", "holocore animus-export $ARGUMENTS"),
+    CommandDefinition("animus-decks", "List bounded Decks in the active World.", "holocore animus-decks"),
+    CommandDefinition("animus-signal", "Record a temporal Signal assertion in Animus.", "holocore animus-signal $ARGUMENTS", True),
+    CommandDefinition("animus-chronicle", "Read a Signal's temporal Chronicle.", "holocore animus-chronicle $ARGUMENTS"),
     CommandDefinition("atlas-refresh", "Refresh the native Atlas graph.", "holocore atlas-refresh", True),
     CommandDefinition("atlas-view", "Generate and open the self-contained Atlas HTML view.", "holocore atlas-view $ARGUMENTS"),
     CommandDefinition("atlas-explain", "Explain a structural Signal and its evidence.", "holocore atlas-explain $ARGUMENTS"),
@@ -53,6 +57,7 @@ COMMANDS: tuple[CommandDefinition, ...] = (
     CommandDefinition("archive-search", "Search the curated Archive.", 'holocore archive-search "$ARGUMENTS"'),
     CommandDefinition("archive-create", "Create an explicit, AI-first Archive note.", "holocore archive-create $ARGUMENTS", True),
     CommandDefinition("status", "Show HoloCore subsystem and freshness status.", "holocore status"),
+    CommandDefinition("console", "Open the local browser Console for chats, shards, wiki, locations, and commands.", "holocore console"),
     CommandDefinition("doctor", "Run read-only HoloCore diagnostics.", "holocore doctor"),
 )
 COMMAND_DEFINITIONS = COMMANDS

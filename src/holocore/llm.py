@@ -31,7 +31,25 @@ class LocalMemoryProvider:
         decisions = [item for item in sentences if re.search(r"\b(decid(?:e|ed)|will|chose|agreed)\b", item, re.I)]
         preferences = [item for item in sentences if re.search(r"\b(prefer|like|want|avoid)\b", item, re.I)]
         entities: list[str] = []
-        for item in re.findall(r"\b(?:[A-Z][\w.-]*)(?:\s+[A-Z][\w.-]*)*\b", text):
+        stop = {
+            "A", "An", "After", "All", "Also", "And", "Any", "Area", "Automatic", "Before", "Changing", "Choose",
+            "During", "Each", "Every", "First", "For", "From", "I", "If", "In", "It", "Its",
+            "Home", "Homes", "ID", "Install", "Installs", "Later", "List", "Local", "No", "None", "Not", "On", "One", "Only", "Open", "Or", "Other", "Project", "Read", "Reinstall", "Report", "Restart", "Run", "Search", "Second", "See", "Setup", "Simple", "Stores",
+            "The", "Then", "These", "This", "Those", "To", "Update", "Use", "When", "Where", "With",
+            "What", "Without", "Yes", "You", "Your",
+        }
+        for item in re.findall(r"\b(?:[A-Z][\w-]*)(?:\s+[A-Z][\w-]*)*\b", text):
+            item = re.sub(r"\s+", " ", item).strip(" .:-")
+            words = item.split()
+            if not item or words[0] in stop:
+                continue
+            if len(words) > 1 and words[-1] in {"From", "See", "Setup", "Stop", "Use"}:
+                continue
+            if len(words) == 1:
+                token = words[0]
+                distinctive = token.isupper() or any(char.isupper() for char in token[1:]) or len(re.findall(rf"\b{re.escape(token)}\b", text)) >= 2
+                if not distinctive:
+                    continue
             if item not in entities:
                 entities.append(item)
         return {
