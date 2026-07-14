@@ -33,12 +33,14 @@ class HoloCoreEngine:
         return self.initialize(git=False, platforms=platforms, home=home)
     def setup(self, *, git: bool = False, platforms: list[str] | None = None, home: Path | None = None) -> dict:
         installation = self.initialize(git=git, platforms=platforms, home=home)
+        from .lifecycle import installation_check
         atlas = self.refresh()
         html = str(atlas["html"])
         return {
             "ready": True,
             "world": str(self.root),
             "installation": installation,
+            "installation_check": installation_check(),
             "atlas": atlas,
             "atlas_html": html,
             "paths": world_paths(self.root, self.router.config),

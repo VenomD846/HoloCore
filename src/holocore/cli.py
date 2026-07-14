@@ -11,7 +11,7 @@ from .config import Config
 from .engine import HoloCoreEngine
 from .home import HomeManager
 from .layout import format_paths, world_paths
-from .lifecycle import sync_all, update_install
+from .lifecycle import installation_check, sync_all, uninstall_tool, update_install
 from .animus import Animus
 from .animus_mining import AnimusMiner, MiningOptions
 from .animus_retrieval import AnimusRetriever
@@ -142,6 +142,8 @@ def main() -> int:
     global_graph.add_argument("--output")
     sub.add_parser("sync-all", help="Reconcile every registered World")
     sub.add_parser("update", help="Update HoloCore and reconcile every World")
+    sub.add_parser("install-check", help="Show installed version and safe upgrade/uninstall commands")
+    sub.add_parser("uninstall", help="Uninstall the HoloCore CLI while preserving project and Home data")
     search = sub.add_parser("search"); search.add_argument("query"); search.add_argument("--world")
     sub.add_parser("atlas-refresh")
     sub.add_parser("atlas-html"); sub.add_parser("atlas-view")
@@ -208,6 +210,14 @@ def main() -> int:
         value = update_install()
         reconciliation = value["reconciliation"]
         print(json.dumps(value, indent=2, default=str) if args.json else f"HoloCore updated. Reconciled {reconciliation['updated']} of {reconciliation['count']} Worlds.")
+        return 0
+    if args.command == "install-check":
+        value = installation_check()
+        print(json.dumps(value, indent=2) if args.json else f"Installed HoloCore: {value['installed_version']}\nUpdate: {value['upgrade_command']}\nUninstall: {value['uninstall_command']}\nProject and Home data are preserved.")
+        return 0
+    if args.command == "uninstall":
+        value = uninstall_tool()
+        print(json.dumps(value, indent=2) if args.json else "HoloCore CLI uninstalled. Project and Home data were preserved.")
         return 0
     if args.command == "open-archive":
         config = Config.load(root=root)

@@ -60,6 +60,11 @@ The Home contains one visible Archive vault:
 └── worlds.json                    Registered project paths and IDs
 ```
 
+HoloCore runtime data is centralized in the project’s `.holocore/` folder. Claude,
+Codex, and other AI clients still require a small number of standard bridge files
+(`.mcp.json`, `.claude/`, `.codex/`, or `.agents/`) so they can discover HoloCore;
+those bridges contain configuration/commands only, not the database or knowledge.
+
 Each World keeps its runtime in the project:
 
 ```text
@@ -144,6 +149,8 @@ holocore atlas-view
 | `holocore worlds` | List every World in the selected Home |
 | `holocore sync-all` | Reconcile integrations and Atlas across all registered Worlds |
 | `holocore update` | Update HoloCore from Git, then reconcile all Worlds |
+| `holocore install-check` | Check the installed version and show update/uninstall commands |
+| `holocore uninstall` | Remove the CLI while preserving Home and project data |
 | `holocore open-archive` | Open `<Home>/Archive` |
 
 Use `--platform` repeatedly with `setup` or `connect` to configure only selected clients.

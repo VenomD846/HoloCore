@@ -26,6 +26,8 @@ COMMANDS: tuple[CommandDefinition, ...] = (
     CommandDefinition("global-graph", "Build one Atlas-only graph across registered Worlds.", "holocore global-graph $ARGUMENTS", True),
     CommandDefinition("sync-all", "Reconcile and refresh every registered World.", "holocore sync-all", True),
     CommandDefinition("update", "Update HoloCore and reconcile every registered World.", "holocore update", True),
+    CommandDefinition("install-check", "Check the installed HoloCore version and safe lifecycle commands.", "holocore install-check"),
+    CommandDefinition("uninstall", "Remove the HoloCore CLI while preserving project and Home data.", "holocore uninstall", True),
     CommandDefinition("ingest", "Ingest a file, folder, or URL into raw sources, Animus, Archive, and Atlas.", "holocore ingest $ARGUMENTS", True),
     CommandDefinition("inbox-sync", "Ingest new files from this World's visible source Inbox.", "holocore inbox-sync", True),
     CommandDefinition("paths", "Show exactly where HoloCore stores every kind of data.", "holocore paths"),

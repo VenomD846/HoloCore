@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from importlib.metadata import version, PackageNotFoundError
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,26 @@ from .install import bootstrap_project
 
 
 REPOSITORY = "https://github.com/VenomD846/HoloCore.git"
+
+
+def installation_check() -> dict[str, Any]:
+    """Report the installed package and safe upgrade path before setup runs."""
+    try:
+        installed = version("holocore")
+    except PackageNotFoundError:
+        installed = "source-checkout"
+    uv = shutil.which("uv")
+    return {"installed_version": installed, "uv_available": bool(uv), "upgrade_command": "holocore update", "uninstall_command": "uv tool uninstall holocore"}
+
+
+def uninstall_tool() -> dict[str, Any]:
+    """Remove only the installed CLI; never delete project or Home data."""
+    uv = shutil.which("uv")
+    if not uv:
+        raise RuntimeError("uv is required to uninstall the HoloCore tool.")
+    command = [uv, "tool", "uninstall", "holocore"]
+    completed = subprocess.run(command, check=True, capture_output=True, text=True)
+    return {"uninstalled": True, "command": command, "output": completed.stdout.strip(), "data_preserved": True}
 
 
 def sync_all(home: Path | None = None) -> dict[str, Any]:
@@ -60,4 +81,4 @@ def update_install(home: Path | None = None, *, repository: str = REPOSITORY) ->
     }
 
 
-__all__ = ["REPOSITORY", "sync_all", "update_install"]
+__all__ = ["REPOSITORY", "installation_check", "sync_all", "uninstall_tool", "update_install"]
