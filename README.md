@@ -101,6 +101,21 @@ Use the World selector in the Console header to move between registered
 projects without restarting the server. The Commands tab is grouped by
 purpose; the other tabs are scoped to the selected World.
 
+Console panels and triggers:
+
+- **Chat Deck** — captured provider transcripts, dates, sources, and searchable text; populated by `UserPromptSubmit`, `Stop`, or `SessionEnd` hooks.
+- **Animus** — Memory Shards, Decks, Signal Chronicles, provenance, and episodic history; read by HoloCore retrieval and MCP.
+- **Archive** — editable AI-first Markdown wiki with managed/user-owned provenance and source links.
+- **Atlas** — Signals, Constellations, relationships, paths, explanations, and community clusters; refreshed by ingest or `atlas-refresh`.
+- **Locations** — exact Home, World, Animus, Archive, Atlas, raw-chat, and connection paths.
+- **AI Commands** — commands grouped by effect for Claude, Codex, and MCP clients.
+- **Maintenance** — ingest, resync, cleanup preview, diagnostics, migration, and freshness status.
+
+The vocabulary is consistent everywhere: a **Deck** is a bounded context inside
+a World; a **Signal** is a tracked concept, person, system, or decision; a
+**Chronicle** is the temporal history of a Signal; and a **Constellation** is a
+connected Signal graph.
+
 Open `<Home>/Archive` as one Obsidian vault if you want Obsidian's Markdown and graph interface. Obsidian is optional; HoloCore works from the CLI and AI clients without it.
 
 ## Keep every World current

@@ -5,6 +5,9 @@ Updated: 2026-07-14
 The browser Console now includes a Home registry World selector, safe text
 wrapping for long paths and transcripts, grouped command help, and a documented
 Home/World structure diagram at `docs/assets/holocore-home-world-structure.svg`.
+Its complete panel contract is Chat Deck, Animus, Archive, Atlas, Locations, AI
+Commands, and Maintenance; hook events populate Chat Deck while ingest and
+refresh operations populate the remaining views.
 
 ## User objective
 
