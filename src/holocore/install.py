@@ -270,6 +270,7 @@ def bootstrap_project(
 
     if "codex" in selected:
         _merge_codex_toml(connections / ".codex/config.toml", server, created, updated, skipped)
+        _merge_capture_hook(connections / ".codex/hooks.json", "UserPromptSubmit", "codex", created, updated, skipped, warnings)
         _merge_capture_hook(connections / ".codex/hooks.json", "Stop", "codex", created, updated, skipped, warnings)
     if "claude" in selected:
         _merge_json(connections / ".mcp.json", mcp, created, updated, skipped, warnings)
