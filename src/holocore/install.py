@@ -274,6 +274,7 @@ def bootstrap_project(
         _merge_capture_hook(connections / ".codex/hooks.json", "Stop", "codex", created, updated, skipped, warnings)
     if "claude" in selected:
         _merge_json(connections / ".mcp.json", mcp, created, updated, skipped, warnings)
+        _merge_capture_hook(connections / ".claude/settings.json", "UserPromptSubmit", "claude", created, updated, skipped, warnings)
         _merge_capture_hook(connections / ".claude/settings.json", "SessionEnd", "claude", created, updated, skipped, warnings)
         _write_generated(
             connections / ".claude/commands/holocore.md",
