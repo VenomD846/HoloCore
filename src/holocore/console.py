@@ -74,7 +74,7 @@ if(current==='Overview'){a='<div class="grid">'+card('Animus',`<b>${S.status.mem
 if(current==='Chat Deck')a=S.chats.length?S.chats.map(x=>card(x.title||x.kind,`<div class="muted">${esc(x.occurred_at)} · ${esc(x.source_ref||'')}</div><pre>${esc(x.content)}</pre>`)).join(''):'<p class="muted">No captured chats in this World.</p>';
 if(current==='Animus')a='<div class="grid">'+card('Memory Shards',S.shards.length+' stored')+card('Decks',S.decks.length+' bounded contexts')+card('Signal Chronicles',S.chronicle.length+' temporal events')+'</div>'+(S.shards.map(x=>card(x.sector_id||'general',`<pre>${esc(x.content)}</pre>`)).join('')||'<p class="muted">No Memory Shards in this World.</p>');
 if(current==='Archive')a='<div class="row"><select id="wikiSelect" onchange="loadWiki()">'+S.wiki.map(x=>`<option value="${esc(x.path)}">${esc(x.path)}</option>`).join('')+'</select><button onclick="newWiki()">New note</button><button onclick="saveWiki()">Save</button></div><textarea id="wikiText"></textarea><p class="muted">Editable Markdown. Managed notes have HoloCore provenance; user notes remain user-owned.</p>'; 
-if(current==='Atlas')a=card('Atlas',`${S.atlas.exists?'Ready':'Missing'} · ${S.atlas.nodes||0} Signals · ${S.atlas.edges||0} relationships · ${S.atlas.constellations||0} Constellations<br><span class="muted">${esc(S.atlas.path)}</span>`)+card('Views','Use atlas.html for graph, paths, explanations, and community clusters.');
+if(current==='Atlas')a=card('Atlas',`${S.atlas.exists?'Ready':'Missing'} · ${S.atlas.nodes||0} Signals · ${S.atlas.edges||0} relationships · ${S.atlas.constellations||0} Constellations<br><span class="muted">${esc(S.atlas.path)}</span>`)+(S.atlas.exists?'<iframe title="World Atlas" src="/atlas" style="width:100%;height:620px;border:1px solid #35527f;border-radius:8px;background:#080d19"></iframe>':'<p class="muted">Refresh Atlas to create the embedded view.</p>');
 if(current==='Locations')a=card('Exact storage locations',Object.entries(S.paths).map(([k,v])=>`<div><b>${esc(k)}</b>: ${esc(v)}</div>`).join(''));
 if(current==='AI Commands'){const groups={"read/query":[],"write knowledge":[],"ingest/sync":[],maintenance:[]};S.commands.forEach(x=>(groups[x.effect]||groups['read/query']).push(x));a=Object.entries(groups).map(([g,xs])=>'<details open><summary>'+g+' ('+xs.length+')</summary><div class="grid">'+xs.map(x=>card(x.name,'<div class="muted">'+esc(x.description)+'</div><code>'+esc(x.invocation)+'</code>')).join('')+'</div></details>').join('')};
 if(current==='Maintenance')a=card('Current status',`Animus: ${esc(S.status.ready?'ready':'needs attention')}<br>Use ingest, animus-sync, atlas-refresh, cleanup, doctor, and update from the command panel or AI client.`);document.getElementById('app').innerHTML=a;if(current==='Archive'&&S.wiki.length)loadWiki()}
@@ -92,6 +92,10 @@ class _Handler(BaseHTTPRequestHandler):
         if requested_root:
             self.service = ConsoleService(Path(requested_root))
         if parsed.path in {"/", "/console"}: return self._send(render_console_html(self.service.payload), content_type="text/html")
+        if parsed.path == "/atlas":
+            atlas_path = Path(self.service.payload["atlas"]["html"])
+            if not atlas_path.is_file(): return self._send("Atlas has not been generated", 404, "text/plain")
+            return self._send(atlas_path.read_text(encoding="utf-8", errors="replace"), content_type="text/html")
         if parsed.path == "/api/state": return self._send(self.service.payload)
         if parsed.path == "/api/wiki":
             path = parse_qs(parsed.query).get("path", [""])[0]
