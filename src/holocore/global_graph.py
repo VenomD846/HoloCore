@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from .config import Config
 
 
 def build_global_graph(home: str | Path, *, output: str | Path | None = None) -> dict[str, Any]:
@@ -21,7 +22,9 @@ def build_global_graph(home: str | Path, *, output: str | Path | None = None) ->
         if not isinstance(world, dict) or not isinstance(world.get("root"), str):
             continue
         world_id = str(world.get("id") or Path(world["root"]).name)
-        graph_path = Path(world["root"]) / "holocore-out" / "graph.json"
+        graph_path = Config.load(root=Path(world["root"])).atlas_graph_path
+        if not graph_path.is_file():
+            graph_path = Path(world["root"]) / "holocore-out" / "graph.json"
         if not graph_path.is_file():
             graph_path = Path(world["root"]) / "graphify-out" / "graph.json"
         if not graph_path.is_file():

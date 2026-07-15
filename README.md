@@ -107,6 +107,7 @@ Console panels and triggers:
 - **Animus** — Memory Shards, Decks, Signal Chronicles, provenance, and episodic history; read by HoloCore retrieval and MCP.
 - **Archive** — editable AI-first Markdown wiki with managed/user-owned provenance and source links.
 - **Atlas** — Signals, Constellations, relationships, paths, explanations, and community clusters; refreshed by ingest or `atlas-refresh`.
+  The Console also embeds a Solar System Atlas: one galaxy-level World node per registered project with that World's Signals and relationships beneath it.
 - **Locations** — exact Home, World, Animus, Archive, Atlas, raw-chat, and connection paths.
 - **AI Commands** — commands grouped by effect for Claude, Codex, and MCP clients.
 - **Maintenance** — ingest, resync, cleanup preview, diagnostics, migration, and freshness status.
