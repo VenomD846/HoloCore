@@ -6,6 +6,8 @@
 
 ![HoloCore Context Engine checks Atlas, reads matching Archive knowledge, optionally recalls Animus history, and sends focused context to reduce input tokens](docs/assets/holocore-context-engine-token-savings.png)
 
+![HoloCore Home and World storage model](docs/assets/holocore-home-world-structure.svg)
+
 The runtime is HoloCore-native. It does not import, launch, or require the original Obsidian Second Brain, Graphify, or MemPalace applications. Those projects were behavioral references for the rewrite and are not runtime components.
 
 ## In simple terms
@@ -94,6 +96,10 @@ The Console brings chats, Memory Shards, Decks and Signal Chronicles, the
 World wiki, exact storage locations, command invocations, and the Atlas link
 into one local view. Wiki edits are validated through the Archive API; captured
 chats remain immutable.
+
+Use the World selector in the Console header to move between registered
+projects without restarting the server. The Commands tab is grouped by
+purpose; the other tabs are scoped to the selected World.
 
 Open `<Home>/Archive` as one Obsidian vault if you want Obsidian's Markdown and graph interface. Obsidian is optional; HoloCore works from the CLI and AI clients without it.
 

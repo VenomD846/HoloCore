@@ -15,6 +15,7 @@ from .archive import Archive
 from .commands import COMMANDS
 from .config import Config
 from .layout import world_paths
+from .home import HomeManager
 
 
 def _record(value):
@@ -26,6 +27,7 @@ def build_console_payload(root: Path) -> dict:
     config = Config.load(root=root)
     paths = world_paths(root, config)
     world = config.world_id or root.name
+    worlds = [{"name": item.get("name", item.get("id", "World")), "root": item.get("root", "")} for item in HomeManager(Path(paths["home"])).list_worlds().get("worlds", [])]
     animus = Animus(config.animus_path)
     try:
         status = animus.status(world=world)
@@ -47,7 +49,7 @@ def build_console_payload(root: Path) -> dict:
             continue
     atlas = {"path": paths["atlas_json"], "html": paths["atlas_html"], "exists": Path(paths["atlas_json"]).exists()}
     return {
-        "world": world, "root": str(root), "paths": paths, "status": status,
+        "world": world, "root": str(root), "worlds": worlds, "paths": paths, "status": status,
         "chats": chats, "shards": shards, "decks": decks, "chronicle": chronicle,
         "wiki": wiki, "atlas": atlas,
         "commands": [asdict(command) for command in COMMANDS],
@@ -57,18 +59,18 @@ def build_console_payload(root: Path) -> dict:
 def render_console_html(payload: dict) -> str:
     state = json.dumps(payload, ensure_ascii=False).replace("<", "\\u003c")
     return """<!doctype html><html><head><meta charset="utf-8"><title>HoloCore Console</title>
-<style>body{margin:0;background:#0b1020;color:#dce7ff;font:14px system-ui}header{padding:20px 28px;background:#121a31;display:flex;justify-content:space-between}h1{margin:0;color:#8ee7ff}nav{padding:12px 28px;background:#0f172b;display:flex;gap:8px;flex-wrap:wrap}button{background:#1b2b4d;color:#dce7ff;border:1px solid #35527f;border-radius:6px;padding:8px 12px;cursor:pointer}button.active{background:#2389a8}main{padding:20px 28px;max-width:1400px;margin:auto}.panel{display:none}.panel.active{display:block}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.card{background:#121a31;border:1px solid #263b61;border-radius:8px;padding:14px;margin:8px 0}.muted{color:#91a4c7}pre,textarea{width:100%;box-sizing:border-box;background:#080d19;color:#dce7ff;border:1px solid #30486f;border-radius:6px;padding:10px}textarea{min-height:280px}input{background:#080d19;color:#dce7ff;border:1px solid #30486f;padding:8px;border-radius:5px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}a{color:#8ee7ff}</style></head><body>
-<header><div><h1>HoloCore Console</h1><div class="muted" id="world"></div></div><div class="muted">Home-backed · local only</div></header><nav id="nav"></nav><main id="app"></main><script id="state" type="application/json">"""+state+"""</script>
+<style>body{margin:0;background:#0b1020;color:#dce7ff;font:14px system-ui;overflow-x:hidden}header{padding:20px 28px;background:#121a31;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}h1{margin:0;color:#8ee7ff}nav{padding:12px 28px;background:#0f172b;display:flex;gap:8px;flex-wrap:wrap}button{background:#1b2b4d;color:#dce7ff;border:1px solid #35527f;border-radius:6px;padding:8px 12px;cursor:pointer}button.active{background:#2389a8}main{padding:20px 28px;max-width:1400px;margin:auto;min-width:0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.card{background:#121a31;border:1px solid #263b61;border-radius:8px;padding:14px;margin:8px 0;min-width:0;overflow:hidden}.muted{color:#91a4c7}pre,textarea{width:100%;max-width:100%;box-sizing:border-box;background:#080d19;color:#dce7ff;border:1px solid #30486f;border-radius:6px;padding:10px;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}textarea{min-height:280px}input,select{background:#080d19;color:#dce7ff;border:1px solid #30486f;padding:8px;border-radius:5px;max-width:100%}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}details{background:#121a31;border:1px solid #263b61;border-radius:8px;padding:10px;margin:8px 0}summary{cursor:pointer;color:#8ee7ff;font-weight:600}a{color:#8ee7ff}</style></head><body>
+<header><div><h1>HoloCore Console</h1><div class="muted" id="world"></div></div><div class="row"><label for="worldSelect">World</label><select id="worldSelect" onchange="switchWorld()"></select><span class="muted">Home-backed · local only</span></div></header><nav id="nav"></nav><main id="app"></main><script id="state" type="application/json">"""+state+"""</script>
 <script>const S=JSON.parse(document.getElementById('state').textContent);const tabs=['Overview','Chats','Shards','Wiki','Signals','Commands'];let current='Overview';
 function esc(x){return String(x??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]))}function card(title,body){return `<div class="card"><h3>${esc(title)}</h3>${body}</div>`}
-function render(){document.getElementById('world').textContent=S.world+' · '+S.root;document.getElementById('nav').innerHTML=tabs.map(t=>`<button class="${t==current?'active':''}" onclick="current='${t}';render()">${t}</button>`).join('');let a='';
+function render(){document.getElementById('world').textContent=S.world+' · '+S.root;const ws=document.getElementById('worldSelect');ws.innerHTML='';S.worlds.forEach(x=>{const o=document.createElement('option');o.value=x.root;o.textContent=x.name;o.selected=x.root===S.root;ws.appendChild(o)});document.getElementById('nav').innerHTML=tabs.map(t=>`<button class="${t==current?'active':''}" onclick="current='${t}';render()">${t}</button>`).join('');let a='';
 if(current==='Overview'){a='<div class="grid">'+card('Animus',`<b>${S.status.memory_shards??0}</b> shards · <b>${S.chats.length}</b> chats`)+card('Atlas',`${S.atlas.exists?'Ready':'Missing'}<br><span class="muted">${esc(S.atlas.path)}</span>`)+card('Locations',Object.entries(S.paths).map(([k,v])=>`<div><b>${esc(k)}</b>: ${esc(v)}</div>`).join(''))+'</div>'}
 if(current==='Chats')a=S.chats.length?S.chats.map(x=>card(x.title||x.kind,`<div class="muted">${esc(x.occurred_at)} · ${esc(x.source_ref||'')}</div><pre>${esc(x.content)}</pre>`)).join(''):'<p class="muted">No captured chats in this World.</p>';
 if(current==='Shards')a=S.shards.length?S.shards.map(x=>card(x.sector_id||'general',`<div class="muted">${esc(x.created_at)} · ${esc((x.sources||[]).map(y=>y.source_ref).join(', '))}</div><pre>${esc(x.content)}</pre>`)).join(''):'<p class="muted">No Memory Shards in this World.</p>';
 if(current==='Wiki')a='<div class="row"><select id="wikiSelect" onchange="loadWiki()">'+S.wiki.map(x=>`<option value="${esc(x.path)}">${esc(x.path)}</option>`).join('')+'</select><button onclick="newWiki()">New note</button><button onclick="saveWiki()">Save</button></div><textarea id="wikiText"></textarea><p class="muted">Edits are validated as AI-first Archive notes and stay inside this World wiki.</p>'; 
 if(current==='Signals')a=(S.decks.length?S.decks.map(x=>card('Deck: '+x.name,esc(x.description||''))).join(''):'')+(S.chronicle.length?S.chronicle.map(x=>card(x.relation,`<b>${esc(x.value)}</b><div class="muted">${esc(x.occurred_at)} · ${esc(x.source_ref)}</div>`)).join(''):'<p class="muted">No Signal Chronicle events.</p>');
-if(current==='Commands')a='<div class="grid">'+S.commands.map(x=>card(x.name,`${esc(x.description)}<pre>${esc(x.invocation)}</pre>`)).join('')+'</div>';document.getElementById('app').innerHTML=a;if(current==='Wiki'&&S.wiki.length)loadWiki()}
-function loadWiki(){let p=document.getElementById('wikiSelect').value;fetch('/api/wiki?path='+encodeURIComponent(p)).then(r=>r.json()).then(x=>document.getElementById('wikiText').value=x.content||'')};function newWiki(){document.getElementById('wikiSelect').innerHTML='<option value="wiki/new-note.md">wiki/new-note.md</option>';document.getElementById('wikiText').value='Write the note here.'};function saveWiki(){let p=document.getElementById('wikiSelect').value;fetch('/api/wiki',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:p,content:document.getElementById('wikiText').value})}).then(r=>r.json()).then(x=>{alert(x.error||'Saved');if(!x.error)location.reload()})};render();</script></body></html>"""
+if(current==='Commands')a='<div class="grid">'+S.commands.map(x=>card(x.name,'<div class="muted">'+esc(x.description)+'</div><code>'+esc(x.invocation)+'</code>')).join('')+'</div>';document.getElementById('app').innerHTML=a;if(current==='Wiki'&&S.wiki.length)loadWiki()}
+function switchWorld(){window.location='?root='+encodeURIComponent(document.getElementById('worldSelect').value)}function loadWiki(){let p=document.getElementById('wikiSelect').value;fetch('/api/wiki?path='+encodeURIComponent(p)).then(r=>r.json()).then(x=>document.getElementById('wikiText').value=x.content||'')};function newWiki(){document.getElementById('wikiSelect').innerHTML='<option value="wiki/new-note.md">wiki/new-note.md</option>';document.getElementById('wikiText').value='Write the note here.'};function saveWiki(){let p=document.getElementById('wikiSelect').value;fetch('/api/wiki',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:p,content:document.getElementById('wikiText').value})}).then(r=>r.json()).then(x=>{alert(x.error||'Saved');if(!x.error)location.reload()})};render();</script></body></html>"""
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -78,6 +80,9 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_response(status); self.send_header("Content-Type", content_type+"; charset=utf-8"); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
     def do_GET(self):
         parsed = urlparse(self.path)
+        requested_root = parse_qs(parsed.query).get("root", [""])[0]
+        if requested_root:
+            self.service = ConsoleService(Path(requested_root))
         if parsed.path in {"/", "/console"}: return self._send(render_console_html(self.service.payload), content_type="text/html")
         if parsed.path == "/api/state": return self._send(self.service.payload)
         if parsed.path == "/api/wiki":
