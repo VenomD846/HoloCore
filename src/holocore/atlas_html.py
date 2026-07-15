@@ -31,6 +31,8 @@ def _script_json(value: Any) -> str:
 
 def render_atlas_html(graph: Mapping[str, Any], *, title: str = "HoloCore Atlas") -> str:
     """Return an accessible standalone force-directed Atlas viewer."""
+    if graph.get("graph", {}).get("generator") == "holocore-global-atlas":
+        return _render_solar_atlas(graph, title)
     payload = _script_json(_validated_graph(graph))
     safe_title = (
         title.replace("&", "&amp;").replace("<", "&lt;")
@@ -72,6 +74,17 @@ let timer;search.addEventListener('input',()=>{clearTimeout(timer);timer=setTime
 })();
 </script></body></html>'''
     return template.replace("__TITLE__", safe_title).replace("__ATLAS_DATA__", payload)
+
+
+def _render_solar_atlas(graph: Mapping[str, Any], title: str) -> str:
+    """Render the cross-World Atlas as restrained orbital systems."""
+    data = _script_json(_validated_graph(graph)); safe = title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return f'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{safe}</title><style>
+body{{margin:0;background:#05070d;color:#d8e2f0;font:14px system-ui;overflow:hidden}}header{{height:58px;padding:0 18px;display:flex;align-items:center;gap:18px;background:#0b1020;border-bottom:1px solid #26334b}}h1{{font-size:16px;color:#9bdcff;margin:0}}#stats{{color:#8da0b8;margin-left:auto}}#stage{{height:calc(100vh - 59px);position:relative;background:radial-gradient(circle,#101a32,#05070d 70%)}}svg{{width:100%;height:100%;display:block}}.world{{fill:#15283f;stroke:#74d7ff;stroke-width:2;cursor:pointer;filter:drop-shadow(0 0 12px #2da8e866)}}.world:hover,.world.selected{{stroke:#fff;filter:drop-shadow(0 0 20px #8de4ff)}}.signal{{fill:#7d8fa8;opacity:.72}}.signal.hot{{fill:#d4a85a}}.orbit{{fill:none;stroke:#49627d;stroke-opacity:.35;stroke-dasharray:3 8}}text{{fill:#dce7ff;font-size:12px;pointer-events:none;text-anchor:middle}}</style></head><body><header><h1>{safe}</h1><span id="stats"></span><span>click a World to zoom · drag to pan · wheel to zoom</span></header><div id="stage"><svg id="svg" role="img" aria-label="Solar System Atlas"></svg></div><script id="data" type="application/json">{data}</script><script>
+const D=JSON.parse(document.getElementById('data').textContent),svg=document.getElementById('svg'),stats=document.getElementById('stats');let zoom=1,focus=null,pan={{x:0,y:0}},drag=null;const worlds=(D.nodes||[]).filter(n=>n.kind==='world'),nodes=D.nodes||[],links=D.links||[];stats.textContent=worlds.length+' Worlds · '+nodes.length+' Signals';
+function draw(){{svg.innerHTML='';const w=svg.clientWidth,h=svg.clientHeight,cx=w/2+pan.x,cy=h/2+pan.y;worlds.forEach((world,i)=>{{const a=i/worlds.length*Math.PI*2-Math.PI/2,r=focus&&focus.id===world.id?0:Math.min(w,h)*.28, x=cx+Math.cos(a)*r*zoom,y=cy+Math.sin(a)*r*zoom;const g=document.createElementNS('http://www.w3.org/2000/svg','g');g.classList.add('system');const orbit=document.createElementNS('http://www.w3.org/2000/svg','circle');orbit.setAttribute('class','orbit');orbit.setAttribute('cx',cx);orbit.setAttribute('cy',cy);orbit.setAttribute('r',Math.min(w,h)*.28*zoom);g.append(orbit);const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('class','world'+(focus&&focus.id===world.id?' selected':''));c.setAttribute('cx',x);c.setAttribute('cy',y);c.setAttribute('r',focus&&focus.id===world.id?34:24);g.append(c);const t=document.createElementNS('http://www.w3.org/2000/svg','text');t.setAttribute('x',x);t.setAttribute('y',y+52);t.textContent=world.label||world.name||world.id;g.append(t);const child=nodes.filter(n=>n.world===world.world||String(n.id).startsWith(world.world+':')).slice(0,140),rr=focus&&focus.id===world.id?Math.min(w,h)*.32:65;child.forEach((n,j)=>{{const q=j/Math.max(1,child.length)*Math.PI*2+Date.now()/12000,x2=x+Math.cos(q)*rr,y2=y+Math.sin(q)*rr;const s=document.createElementNS('http://www.w3.org/2000/svg','circle');s.setAttribute('class','signal'+(n.semantic?' hot':''));s.setAttribute('cx',x2);s.setAttribute('cy',y2);s.setAttribute('r',n.semantic?3:2);g.append(s)}});c.addEventListener('click',()=>{{focus=focus&&focus.id===world.id?null:world;draw()}});svg.append(g)}})}}
+svg.addEventListener('wheel',e=>{{e.preventDefault();zoom=Math.max(.55,Math.min(2.5,zoom*(e.deltaY<0?1.12:.89)));draw()}},{{passive:false}});svg.addEventListener('pointerdown',e=>drag={{x:e.clientX,y:e.clientY,p:{{...pan}}}});svg.addEventListener('pointermove',e=>{{if(!drag)return;pan.x=drag.p.x+e.clientX-drag.x;pan.y=drag.p.y+e.clientY-drag.y;draw()}});svg.addEventListener('pointerup',()=>drag=null);addEventListener('resize',draw);draw();setInterval(draw,900);
+</script></body></html>'''
 
 
 def generate_atlas_html(
