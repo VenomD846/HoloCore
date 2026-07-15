@@ -69,6 +69,24 @@ This keeps the user in control of local command and server execution.
 
 ## How unified search works
 
+## The global Atlas: a 3D World system
+
+The Console's **Solar System Atlas** is a self-contained WebGL view. Each
+registered project is a World body; its Signals orbit that body, while detailed
+structural relationships remain available in the selected World Atlas. Use the
+World switcher on the left or click a World in the canvas to fly toward it.
+
+- drag the canvas to orbit the camera;
+- use the wheel to change camera distance;
+- click a World to focus it, then choose another World to return to the system;
+- the layout uses deterministic orbital placement with bounded repulsion and
+  gravity-like centre pull, so a large graph stays readable and repeatable.
+
+This is the HoloCore adaptation of the reviewed galaxy-view, galaxy-explorer,
+and galaxy_sim references: Worker-force/selection ideas from the Obsidian graph,
+cinematic dark-space presentation from the explorer, and GPU-friendly orbital
+physics from the simulator. No external CDN or runtime is required.
+
 ![HoloCore checks readiness and freshness before Atlas, active World and Shared Archive, optional Animus, and exact sources](assets/workflow-unified-search.svg)
 
 ### Step 1 — Ask one question
