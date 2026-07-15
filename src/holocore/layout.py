@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import os
 import tomllib
 
 from .config import Config
@@ -127,7 +128,8 @@ def integration_status(root: Path) -> dict[str, dict[str, object]]:
     claude_commands = Path(paths["claude_commands"])
     claude_hooks = Path(paths["claude_hooks"])
     codex_path = Path(paths["codex_mcp"])
-    codex_hooks = Path(paths["codex_hooks"])
+    codex_hooks = Path(os.getenv("CODEX_HOME", Path.home() / ".codex")) / "hooks.json"
+    codex_template = Path(paths["codex_hooks"])
     codex_skills = Path(paths["codex_skills"])
     claude_ok, claude_detail = json_mcp(claude_mcp)
 
@@ -139,7 +141,9 @@ def integration_status(root: Path) -> dict[str, dict[str, object]]:
         return "holocore.capture_hook" in json.dumps(data.get("hooks", {}).get(event, []))
 
     claude_capture = capture_hook(claude_hooks, "SessionEnd")
-    codex_capture = capture_hook(codex_hooks, "Stop")
+    codex_prompt = capture_hook(codex_hooks, "UserPromptSubmit")
+    codex_stop = capture_hook(codex_hooks, "Stop")
+    codex_capture = codex_prompt and codex_stop
     try:
         codex_data = tomllib.loads(codex_path.read_text(encoding="utf-8")) if codex_path.exists() else {}
         codex_ok = "holocore" in codex_data.get("mcp_servers", {})
@@ -161,5 +165,10 @@ def integration_status(root: Path) -> dict[str, dict[str, object]]:
             "config": str(codex_path),
             "skills": len(list(codex_skills.glob("holocore-*/SKILL.md"))),
             "capture": codex_capture,
+            "capture_status": "verified" if codex_capture else "configured, not yet verified",
+            "active_hooks": str(codex_hooks),
+            "template_hooks": str(codex_template),
+            "user_prompt_submit": codex_prompt,
+            "stop": codex_stop,
         },
     }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -191,8 +192,18 @@ def _merge_capture_hook(target: Path, event: str, client: str, created: list[Pat
         skipped.append(target)
         warnings.append(f"Could not install automatic {client} capture hook because hooks.{event} in {target} is not a list")
         return
-    if any("holocore.capture_hook" in json.dumps(group) for group in groups):
-        skipped.append(target)
+    for group in groups:
+        if "holocore.capture_hook" not in json.dumps(group):
+            continue
+        changed = False
+        for item in group.get("hooks", []) if isinstance(group, dict) else []:
+            if isinstance(item, dict) and item.get("type") == "command" and "holocore.capture_hook" in str(item.get("command", "")):
+                item.update(handler); changed = True
+        if changed:
+            target.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            updated.append(target)
+        else:
+            skipped.append(target)
         return
     groups.append({"hooks": [handler]})
     target.write_text(json.dumps(data, indent=2), encoding="utf-8")
@@ -270,6 +281,11 @@ def bootstrap_project(
 
     if "codex" in selected:
         _merge_codex_toml(connections / ".codex/config.toml", server, created, updated, skipped)
+        # Home keeps the template; Codex executes hooks only from its active
+        # user configuration layer.
+        active_codex = Path(os.getenv("CODEX_HOME", Path.home() / ".codex")) / "hooks.json"
+        _merge_capture_hook(active_codex, "UserPromptSubmit", "codex", created, updated, skipped, warnings)
+        _merge_capture_hook(active_codex, "Stop", "codex", created, updated, skipped, warnings)
         _merge_capture_hook(connections / ".codex/hooks.json", "UserPromptSubmit", "codex", created, updated, skipped, warnings)
         _merge_capture_hook(connections / ".codex/hooks.json", "Stop", "codex", created, updated, skipped, warnings)
     if "claude" in selected:
