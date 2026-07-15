@@ -198,7 +198,8 @@ def _merge_capture_hook(target: Path, event: str, client: str, created: list[Pat
         changed = False
         for item in group.get("hooks", []) if isinstance(group, dict) else []:
             if isinstance(item, dict) and item.get("type") == "command" and "holocore.capture_hook" in str(item.get("command", "")):
-                item.update(handler); changed = True
+                if any(item.get(key) != value for key, value in handler.items()):
+                    item.update(handler); changed = True
         if changed:
             target.write_text(json.dumps(data, indent=2), encoding="utf-8")
             updated.append(target)
