@@ -86,7 +86,9 @@ def main() -> int:
         result = run(payload if isinstance(payload, dict) else {}, args.client)
     except Exception as exc:
         result = {"captured": False, "reason": f"hook-error:{type(exc).__name__}"}
-    print(json.dumps(result, ensure_ascii=False, default=str))
+    # Hook response schemas differ across clients. Keep the rich capture
+    # result in capture-diagnostics.jsonl and emit no stdout so Codex, Claude,
+    # and future clients cannot reject an otherwise successful capture.
     return 0
 
 

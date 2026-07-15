@@ -81,6 +81,41 @@ Then complete the client trust step:
 
 The expected files are `<project>/.claude/settings.json` and `<project>/.codex/hooks.json`. If either file contains invalid JSON, HoloCore skips it and reports a warning instead of overwriting it.
 
+## Review and verify capture hooks
+
+HoloCore capture hooks run with the `uv`-managed interpreter, not the system
+Python installation. The expected command is:
+
+```text
+C:\Users\<user>\AppData\Roaming\uv\tools\holocore\Scripts\python.exe -m holocore.capture_hook --client <client>
+```
+
+After changing a hook command, the client treats it as a new definition. Trust
+must be refreshed for the current definition, and an already-open task does not
+reload it.
+
+- **Codex:** restart Codex, open the Codex CLI, run `/hooks`, and trust the
+  current user-level `UserPromptSubmit` and `Stop` definitions. Then restart
+  the Desktop app and create a new task. On Windows, the `commandWindows`
+  value must use the executable form shown by `/hooks`; keep legacy duplicate
+  project-local hooks disabled unless they are intentionally needed.
+- **Claude Code:** restart the project, approve the current hook when prompted,
+  and let the `SessionEnd` event fire. Run `/mcp` separately to approve the
+  HoloCore MCP server; MCP approval does not trust capture hooks.
+
+To verify a completed capture, use the paths reported by `holocore paths` and
+inspect the latest diagnostic records:
+
+```powershell
+holocore paths
+Get-Content "<Home>\Projects\<world>\Runtime\capture-diagnostics.jsonl" -Tail 5
+```
+
+Look for `captured: true` and `committed: true`, followed by a new raw audit
+under `<Home>\Animus\raw-chats\<world>`. `holocore animus-checkpoint` may be
+`null` on installations that use the runtime diagnostic record as the cursor;
+that alone does not prove capture failed.
+
 ## A session was not captured
 
 Automatic capture needs a supported hook payload and a readable transcript. Check:

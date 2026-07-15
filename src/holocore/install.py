@@ -178,7 +178,12 @@ def _merge_capture_hook(target: Path, event: str, client: str, created: list[Pat
             skipped.append(target)
             warnings.append(f"Could not install automatic {client} capture hook because {target} is not a JSON object")
             return
-    command = f'"{Path(sys.executable).resolve()}" -m holocore.capture_hook --client {client}'
+    executable = str(Path(sys.executable).resolve())
+    command = (
+        f'"{executable}" -m holocore.capture_hook --client {client}'
+        if " " in executable
+        else f"{executable} -m holocore.capture_hook --client {client}"
+    )
     handler = {"type": "command", "command": command, "timeout": 60, "statusMessage": "Saving conversation to HoloCore"}
     if client == "codex":
         handler["commandWindows"] = command
