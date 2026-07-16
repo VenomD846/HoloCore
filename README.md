@@ -44,6 +44,18 @@ HoloCore builds one route and executes it once:
 
 `holocore search` checks Atlas freshness and refreshes the local graph when required. Atlas narrows the project scope first. Archive adds verified knowledge. Animus runs last only for questions about earlier work, errors, attempts, or conversations. Every selected subsystem runs at most once, and a recursion guard prevents a HoloCore search from routing back into itself.
 
+## Benchmark results
+
+On the HoloCore repository, the corrected relevance-gated route returned fewer estimated retrieval tokens than Graphify-only:
+
+| Retrieval mode | Estimated tokens/query |
+|---|---:|
+| Naive full corpus | ~133,866 |
+| Graphify-only | ~242 |
+| HoloCore | ~156 |
+
+HoloCore used approximately 35.5% fewer retrieval tokens than Graphify across five code questions. Code queries used `check → Atlas`; architecture and prior-work queries used bounded `check → Atlas → Archive → Animus` routes. Full timings and reproduction details are in the [plain-text benchmark results](benchmarks/holocore-vs-graphify-2026-07-16.txt).
+
 ## Automatic memory
 
 Setup installs local capture hooks for supported clients:
