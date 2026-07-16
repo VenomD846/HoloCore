@@ -1,0 +1,75 @@
+HoloCore vs Graphify benchmark results
+Date: 2026-07-16
+Project: C:\\Cursor projects\\HoloCore
+
+SUMMARY
+-------
+Naive full-corpus estimate:  ~133,866 tokens/query
+Graphify-only average:       ~242 tokens/query
+HoloCore average:             ~156 tokens/query
+
+HoloCore used approximately 35.5% fewer retrieval tokens than Graphify on
+the five-question code benchmark.
+
+RESPONSE TIME
+-------------
+Graphify CLI benchmark: 564.77 ms average across five runs
+HoloCore in-process route: 522.81 ms average across five code questions
+HoloCore CLI end-to-end: 836.40 ms average across five code questions
+Naive raw corpus read: 713.69 ms for 1,002 files
+
+CODE QUESTIONS
+--------------
+Question: how does authentication work
+Route: check -> Atlas
+Results: Atlas x3
+Time: 746.67 ms
+Payload: 88 estimated tokens
+
+Question: what is the main entry point
+Route: check -> Atlas
+Results: Atlas x3
+Time: 1,082.54 ms
+Payload: 121 estimated tokens
+
+Question: how are errors handled
+Route: check -> Atlas
+Results: Atlas x3
+Time: 255.51 ms
+Payload: 125 estimated tokens
+
+Question: what connects the data layer to the api
+Route: check -> Atlas
+Results: Atlas x3
+Time: 262.22 ms
+Payload: 244 estimated tokens
+
+Question: what are the core abstractions
+Route: check -> Atlas
+Results: Atlas x3
+Time: 267.11 ms
+Payload: 202 estimated tokens
+
+HISTORY / DECISION ROUTES
+-------------------------
+Documented architecture decision:
+Route: check -> Atlas -> Archive -> Animus
+Results: one Atlas, one Archive, one Animus
+Payload: 232 estimated tokens
+
+What we tried last time:
+Route: check -> Atlas -> Archive -> Animus
+Results: one Atlas, one Archive, one Animus
+Payload: 231 estimated tokens
+
+ROUTING CHANGE VALIDATED
+------------------------
+Code queries no longer query Archive or Animus by default.
+Generic words such as 'error' no longer trigger history retrieval.
+History routes are capped to one result per subsystem with short excerpts.
+Archive and Animus are selected only for durable-knowledge or prior-work queries.
+
+Validation: 96 passed, 1 skipped
+
+Token counts are transparent ~4-characters-per-token estimates, not hidden
+Codex billing counters.
